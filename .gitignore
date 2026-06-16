@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.py[cod]
+.venv/
+preprocessed_db/
+vector_db/
+*.egg-info/
+dist/
