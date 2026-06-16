@@ -6,23 +6,24 @@ from pydantic import BaseModel, Field
 from pathlib import Path
 from tenacity import retry, wait_exponential
 
+from models import Result
+
 
 load_dotenv(override=True)
 
 MODEL = "openai/gpt-4.1-nano"
 DB_NAME = str(Path(__file__).parent / "preprocessed_db")
-
-collection_name = "docs"
-embedding_model = "text-embedding-3-large"
-wait = wait_exponential(multiplier=1, min=10, max=240)
-
-openai = OpenAI()
-
-chroma = PersistentClient(path=DB_NAME)
-collection = chroma.get_or_create_collection(collection_name)
-
+COLLECTION_NAME = "docs"
+EMBEDDING_MODEL = "text-embedding-3-large"
 RETRIEVAL_K = 20
-FINAL_K = 10
+CONTEXT_K = 10
+
+RETRY_WAIT = wait_exponential(multiplier=1, min=10, max=240)
+
+client = OpenAI()
+
+chroma_client = PersistentClient(path=DB_NAME)
+docs_collection = chroma_client.get_or_create_collection(COLLECTION_NAME)
 
 SYSTEM_PROMPT = """
 You are a knowledgeable, friendly assistant representing the company Insurellm.
@@ -36,18 +37,13 @@ With this context, please answer the user's question. Be accurate, relevant and 
 """
 
 
-class Result(BaseModel):
-    page_content: str
-    metadata: dict
-
-
 class RankOrder(BaseModel):
     order: list[int] = Field(
         description="The order of relevance of chunks, from most relevant to least relevant, by chunk id number"
     )
 
 
-@retry(wait=wait)
+@retry(wait=RETRY_WAIT)
 def rerank(question, chunks):
     system_prompt = """
 You are a document re-ranker.
@@ -66,9 +62,14 @@ Reply only with the list of ranked chunk ids, nothing else. Include all the chun
         {"role": "user", "content": user_prompt},
     ]
     response = completion(model=MODEL, messages=messages, response_format=RankOrder)
-    reply = response.choices[0].message.content
-    order = RankOrder.model_validate_json(reply).order
-    return [chunks[i - 1] for i in order]
+    order = RankOrder.model_validate_json(response.choices[0].message.content).order
+    seen: set[int] = set()
+    reranked = []
+    for i in order:
+        if 1 <= i <= len(chunks) and i not in seen:
+            seen.add(i)
+            reranked.append(chunks[i - 1])
+    return reranked
 
 
 def make_rag_messages(question, history, chunks):
@@ -83,8 +84,9 @@ def make_rag_messages(question, history, chunks):
     )
 
 
-@retry(wait=wait)
-def rewrite_query(question, history=[]):
+@retry(wait=RETRY_WAIT)
+def rewrite_query(question, history=None):
+    history = history or []
     message = f"""
 You are in a conversation with a user, answering questions about the company Insurellm.
 You are about to look up information in a Knowledge Base to answer the user's question.
@@ -105,7 +107,7 @@ IMPORTANT: Respond ONLY with the precise knowledgebase query, nothing else.
 
 def merge_chunks(chunks, reranked):
     merged = chunks[:]
-    existing = [chunk.page_content for chunk in chunks]
+    existing = {chunk.page_content for chunk in chunks}
     for chunk in reranked:
         if chunk.page_content not in existing:
             merged.append(chunk)
@@ -113,12 +115,12 @@ def merge_chunks(chunks, reranked):
 
 
 def fetch_context_unranked(question):
-    query = openai.embeddings.create(model=embedding_model, input=[question]).data[0].embedding
-    results = collection.query(query_embeddings=[query], n_results=RETRIEVAL_K)
-    chunks = []
-    for result in zip(results["documents"][0], results["metadatas"][0]):
-        chunks.append(Result(page_content=result[0], metadata=result[1]))
-    return chunks
+    embedding = client.embeddings.create(model=EMBEDDING_MODEL, input=[question]).data[0].embedding
+    results = docs_collection.query(query_embeddings=[embedding], n_results=RETRIEVAL_K)
+    return [
+        Result(page_content=doc, metadata=meta)
+        for doc, meta in zip(results["documents"][0], results["metadatas"][0])
+    ]
 
 
 def fetch_context(original_question):
@@ -127,12 +129,17 @@ def fetch_context(original_question):
     chunks2 = fetch_context_unranked(rewritten_question)
     chunks = merge_chunks(chunks1, chunks2)
     reranked = rerank(original_question, chunks)
-    return reranked[:FINAL_K]
+    return reranked[:CONTEXT_K]
 
 
-@retry(wait=wait)
-def answer_question(question: str, history: list[dict] = []) -> tuple[str, list]:
+@retry(wait=RETRY_WAIT)
+def _generate_answer(messages):
+    response = completion(model=MODEL, messages=messages)
+    return response.choices[0].message.content
+
+
+def answer_question(question: str, history: list[dict] | None = None) -> tuple[str, list]:
+    history = history or []
     chunks = fetch_context(question)
     messages = make_rag_messages(question, history, chunks)
-    response = completion(model=MODEL, messages=messages)
-    return response.choices[0].message.content, chunks
+    return _generate_answer(messages), chunks

@@ -8,26 +8,25 @@ from litellm import completion
 from multiprocessing import Pool
 from tenacity import retry, wait_exponential
 
+from models import Result
+
 
 load_dotenv(override=True)
 
 MODEL = "openai/gpt-4.1-nano"
 
 DB_NAME = str(Path(__file__).parent / "preprocessed_db")
-collection_name = "docs"
-embedding_model = "text-embedding-3-large"
+COLLECTION_NAME = "docs"
+EMBEDDING_MODEL = "text-embedding-3-large"
 KNOWLEDGE_BASE_PATH = Path(__file__).parent / "knowledge-base"
 AVERAGE_CHUNK_SIZE = 100
-wait = wait_exponential(multiplier=1, min=10, max=240)
+EMBEDDING_BATCH_SIZE = 512
+
+RETRY_WAIT = wait_exponential(multiplier=1, min=10, max=240)
 
 WORKERS = 3
 
-openai = OpenAI()
-
-
-class Result(BaseModel):
-    page_content: str
-    metadata: dict
+client = OpenAI()
 
 
 class Chunk(BaseModel):
@@ -56,6 +55,8 @@ class Chunks(BaseModel):
 def fetch_documents():
     documents = []
     for folder in KNOWLEDGE_BASE_PATH.iterdir():
+        if not folder.is_dir():
+            continue
         doc_type = folder.name
         for file in folder.rglob("*.md"):
             with open(file, "r", encoding="utf-8") as f:
@@ -65,7 +66,7 @@ def fetch_documents():
 
 
 def make_prompt(document):
-    how_many = (len(document["text"]) // AVERAGE_CHUNK_SIZE) + 1
+    estimated_chunks = (len(document["text"]) // AVERAGE_CHUNK_SIZE) + 1
     return f"""
 You take a document and you split the document into overlapping chunks for a KnowledgeBase.
 
@@ -75,7 +76,7 @@ The document has been retrieved from: {document["source"]}
 
 A chatbot will use these chunks to answer questions about the company.
 You should divide up the document as you see fit, being sure that the entire document is returned across the chunks - don't leave anything out.
-This document should probably be split into at least {how_many} chunks, but you can have more or less as appropriate, ensuring that there are individual chunks to answer specific questions.
+This document should probably be split into at least {estimated_chunks} chunks, but you can have more or less as appropriate, ensuring that there are individual chunks to answer specific questions.
 There should be overlap between the chunks as appropriate; typically about 25% overlap or about 50 words, so you have the same text in multiple chunks for best retrieval results.
 
 For each chunk, you should provide a headline, a summary, and the original text of the chunk.
@@ -93,12 +94,11 @@ def make_messages(document):
     return [{"role": "user", "content": make_prompt(document)}]
 
 
-@retry(wait=wait)
+@retry(wait=RETRY_WAIT)
 def process_document(document):
     messages = make_messages(document)
     response = completion(model=MODEL, messages=messages, response_format=Chunks)
-    reply = response.choices[0].message.content
-    doc_as_chunks = Chunks.model_validate_json(reply).chunks
+    doc_as_chunks = Chunks.model_validate_json(response.choices[0].message.content).chunks
     return [chunk.as_result(document) for chunk in doc_as_chunks]
 
 
@@ -112,21 +112,25 @@ def create_chunks(documents):
 
 
 def create_embeddings(chunks):
-    chroma = PersistentClient(path=DB_NAME)
-    if collection_name in [c.name for c in chroma.list_collections()]:
-        chroma.delete_collection(collection_name)
+    chroma_client = PersistentClient(path=DB_NAME)
+    if COLLECTION_NAME in [c.name for c in chroma_client.list_collections()]:
+        chroma_client.delete_collection(COLLECTION_NAME)
 
     texts = [chunk.page_content for chunk in chunks]
-    emb = openai.embeddings.create(model=embedding_model, input=texts).data
-    vectors = [e.embedding for e in emb]
 
-    collection = chroma.get_or_create_collection(collection_name)
+    embeddings = []
+    for i in tqdm(range(0, len(texts), EMBEDDING_BATCH_SIZE), desc="Embedding batches"):
+        batch = texts[i : i + EMBEDDING_BATCH_SIZE]
+        batch_embeddings = client.embeddings.create(model=EMBEDDING_MODEL, input=batch).data
+        embeddings.extend(e.embedding for e in batch_embeddings)
+
+    docs_collection = chroma_client.get_or_create_collection(COLLECTION_NAME)
 
     ids = [str(i) for i in range(len(chunks))]
-    metas = [chunk.metadata for chunk in chunks]
+    metadatas = [chunk.metadata for chunk in chunks]
 
-    collection.add(ids=ids, embeddings=vectors, documents=texts, metadatas=metas)
-    print(f"Vectorstore created with {collection.count()} documents")
+    docs_collection.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
+    print(f"Vectorstore created with {docs_collection.count()} documents")
 
 
 def main():

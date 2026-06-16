@@ -114,15 +114,15 @@ Provide detailed feedback and scores from 1 (very poor) to 5 (ideal) for each di
 def evaluate_all_retrieval():
     tests = load_tests()
     for index, test in enumerate(tests):
-        result = evaluate_retrieval(test)
-        yield test, result, (index + 1) / len(tests)
+        retrieval_eval = evaluate_retrieval(test)
+        yield test, retrieval_eval, (index + 1) / len(tests)
 
 
 def evaluate_all_answers():
     tests = load_tests()
     for index, test in enumerate(tests):
-        result = evaluate_answer(test)[0]
-        yield test, result, (index + 1) / len(tests)
+        answer_eval = evaluate_answer(test)[0]
+        yield test, answer_eval, (index + 1) / len(tests)
 
 
 def run_cli_evaluation(test_number: int):
