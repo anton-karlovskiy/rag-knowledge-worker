@@ -1,7 +1,12 @@
 {
     "cSpell.words": [
+        "chromadb",
+        "dotenv",
         "Insurellm",
+        "litellm",
+        "pydantic",
         "reranking",
-        "reranks"
+        "reranks",
+        "tqdm"
     ]
 }
