@@ -59,8 +59,10 @@ def fetch_documents():
             continue
         doc_type = folder.name
         for file in folder.rglob("*.md"):
-            with open(file, "r", encoding="utf-8") as f:
-                documents.append({"type": doc_type, "source": file.as_posix(), "text": f.read()})
+            with open(file, "r", encoding="utf-8") as file_handle:
+                documents.append(
+                    {"type": doc_type, "source": file.as_posix(), "text": file_handle.read()}
+                )
     print(f"Loaded {len(documents)} documents")
     return documents
 
@@ -113,20 +115,21 @@ def create_chunks(documents):
 
 def create_embeddings(chunks):
     chroma_client = PersistentClient(path=DB_NAME)
-    if COLLECTION_NAME in [c.name for c in chroma_client.list_collections()]:
+    existing_names = [collection.name for collection in chroma_client.list_collections()]
+    if COLLECTION_NAME in existing_names:
         chroma_client.delete_collection(COLLECTION_NAME)
 
     texts = [chunk.page_content for chunk in chunks]
 
     embeddings = []
-    for i in tqdm(range(0, len(texts), EMBEDDING_BATCH_SIZE), desc="Embedding batches"):
-        batch = texts[i : i + EMBEDDING_BATCH_SIZE]
-        batch_embeddings = client.embeddings.create(model=EMBEDDING_MODEL, input=batch).data
-        embeddings.extend(e.embedding for e in batch_embeddings)
+    for batch_start in tqdm(range(0, len(texts), EMBEDDING_BATCH_SIZE), desc="Embedding batches"):
+        batch_texts = texts[batch_start : batch_start + EMBEDDING_BATCH_SIZE]
+        batch_response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch_texts).data
+        embeddings.extend(item.embedding for item in batch_response)
 
     docs_collection = chroma_client.get_or_create_collection(COLLECTION_NAME)
 
-    ids = [str(i) for i in range(len(chunks))]
+    ids = [str(index) for index in range(len(chunks))]
     metadatas = [chunk.metadata for chunk in chunks]
 
     docs_collection.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)

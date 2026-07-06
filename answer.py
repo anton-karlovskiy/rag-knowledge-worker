@@ -62,14 +62,14 @@ Reply only with the list of ranked chunk ids, nothing else. Include all the chun
         {"role": "user", "content": user_prompt},
     ]
     response = completion(model=MODEL, messages=messages, response_format=RankOrder)
-    order = RankOrder.model_validate_json(response.choices[0].message.content).order
-    seen: set[int] = set()
-    reranked = []
-    for i in order:
-        if 1 <= i <= len(chunks) and i not in seen:
-            seen.add(i)
-            reranked.append(chunks[i - 1])
-    return reranked
+    ranked_ids = RankOrder.model_validate_json(response.choices[0].message.content).order
+    seen_ids: set[int] = set()
+    reranked_chunks = []
+    for chunk_id in ranked_ids:
+        if 1 <= chunk_id <= len(chunks) and chunk_id not in seen_ids:
+            seen_ids.add(chunk_id)
+            reranked_chunks.append(chunks[chunk_id - 1])
+    return reranked_chunks
 
 
 def make_rag_messages(question, history, chunks):
@@ -105,13 +105,13 @@ IMPORTANT: Respond ONLY with the precise knowledgebase query, nothing else.
     return response.choices[0].message.content
 
 
-def merge_chunks(chunks, reranked):
-    merged = chunks[:]
-    existing = {chunk.page_content for chunk in chunks}
-    for chunk in reranked:
-        if chunk.page_content not in existing:
-            merged.append(chunk)
-    return merged
+def merge_chunks(primary_chunks, additional_chunks):
+    merged_chunks = primary_chunks[:]
+    seen_content = {chunk.page_content for chunk in primary_chunks}
+    for chunk in additional_chunks:
+        if chunk.page_content not in seen_content:
+            merged_chunks.append(chunk)
+    return merged_chunks
 
 
 def fetch_context_unranked(question):
@@ -125,11 +125,11 @@ def fetch_context_unranked(question):
 
 def fetch_context(original_question):
     rewritten_question = rewrite_query(original_question)
-    chunks1 = fetch_context_unranked(original_question)
-    chunks2 = fetch_context_unranked(rewritten_question)
-    chunks = merge_chunks(chunks1, chunks2)
-    reranked = rerank(original_question, chunks)
-    return reranked[:CONTEXT_K]
+    original_chunks = fetch_context_unranked(original_question)
+    rewritten_chunks = fetch_context_unranked(rewritten_question)
+    candidate_chunks = merge_chunks(original_chunks, rewritten_chunks)
+    reranked_chunks = rerank(original_question, candidate_chunks)
+    return reranked_chunks[:CONTEXT_K]
 
 
 @retry(wait=RETRY_WAIT)

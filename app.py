@@ -6,20 +6,20 @@ from answer import answer_question
 load_dotenv(override=True)
 
 
-def format_context(context):
-    result = "<h2 style='color: #ff7800;'>Relevant Context</h2>\n\n"
-    for doc in context:
-        result += f"<span style='color: #ff7800;'>Source: {doc.metadata['source']}</span>\n\n"
-        result += doc.page_content + "\n\n"
-    return result
+def format_context(context_chunks):
+    formatted = "<h2 style='color: #ff7800;'>Relevant Context</h2>\n\n"
+    for chunk in context_chunks:
+        formatted += f"<span style='color: #ff7800;'>Source: {chunk.metadata['source']}</span>\n\n"
+        formatted += chunk.page_content + "\n\n"
+    return formatted
 
 
 def chat(history):
-    last_message = history[-1]["content"]
-    prior = history[:-1]
-    answer, context = answer_question(last_message, prior)
+    latest_question = history[-1]["content"]
+    prior_messages = history[:-1]
+    answer, context_chunks = answer_question(latest_question, prior_messages)
     history.append({"role": "assistant", "content": answer})
-    return history, format_context(context)
+    return history, format_context(context_chunks)
 
 
 def main():

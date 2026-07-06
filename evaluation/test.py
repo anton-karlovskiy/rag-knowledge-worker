@@ -14,8 +14,8 @@ class TestQuestion(BaseModel):
 
 def load_tests() -> list[TestQuestion]:
     tests = []
-    with open(TEST_FILE, "r", encoding="utf-8") as f:
-        for line in f:
+    with open(TEST_FILE, "r", encoding="utf-8") as file_handle:
+        for line in file_handle:
             data = json.loads(line.strip())
             tests.append(TestQuestion(**data))
     return tests
