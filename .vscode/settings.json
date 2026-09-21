@@ -2,11 +2,17 @@
     "cSpell.words": [
         "chromadb",
         "dotenv",
+        "inbrowser",
         "Insurellm",
+        "knowledgebase",
         "litellm",
+        "metadatas",
         "pydantic",
+        "rerank",
+        "reranked",
         "reranking",
         "reranks",
-        "tqdm"
+        "tqdm",
+        "unranked"
     ]
 }
