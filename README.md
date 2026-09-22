@@ -40,7 +40,7 @@ Opens a Gradio chat interface in your browser. Ask anything about the company. T
 
 ## Evaluation
 
-The `evaluation/` folder contains a set of test questions with reference answers and expected keywords.
+The `evaluation/` folder contains a set of test cases, each with a question, reference answer, and expected keywords.
 
 To evaluate a single test case by index:
 
@@ -64,8 +64,8 @@ This runs both retrieval evaluation (MRR, nDCG, keyword coverage) and answer qua
 │   └── products/       # Product descriptions
 └── evaluation/
     ├── eval.py         # Retrieval and answer quality evaluation
-    ├── test.py         # Test data loader
-    └── tests.jsonl     # Test questions with reference answers
+    ├── test.py         # Test case model and loader
+    └── test_cases.jsonl # Test cases: questions, reference answers, and keywords
 ```
 
 ## How the RAG pipeline works

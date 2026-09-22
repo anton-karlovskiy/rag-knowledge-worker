@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 from litellm import completion
 from dotenv import load_dotenv
 
-from evaluation.test import TestQuestion, load_tests
+from evaluation.test import TestCase, load_test_cases
 from answer import answer_question, fetch_context
 
 
@@ -65,14 +65,14 @@ def calculate_ndcg(keyword: str, retrieved_docs: list, k: int = 10) -> float:
     return dcg / idcg if idcg > 0 else 0.0
 
 
-def evaluate_retrieval(test: TestQuestion, k: int = 10) -> RetrievalEval:
-    retrieved_docs = fetch_context(test.question)
-    reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test.keywords]
+def evaluate_retrieval(test_case: TestCase, k: int = 10) -> RetrievalEval:
+    retrieved_docs = fetch_context(test_case.question)
+    reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test_case.keywords]
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
-    ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, k) for keyword in test.keywords]
+    ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, k) for keyword in test_case.keywords]
     mean_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
     found_keywords = sum(1 for reciprocal_rank in reciprocal_ranks if reciprocal_rank > 0)
-    total_keywords = len(test.keywords)
+    total_keywords = len(test_case.keywords)
     keyword_coverage_percent = (found_keywords / total_keywords * 100) if total_keywords > 0 else 0.0
     return RetrievalEval(
         mrr=mrr,
@@ -83,8 +83,8 @@ def evaluate_retrieval(test: TestQuestion, k: int = 10) -> RetrievalEval:
     )
 
 
-def evaluate_answer(test: TestQuestion) -> tuple[AnswerEval, str, list]:
-    generated_answer, retrieved_docs = answer_question(test.question)
+def evaluate_answer(test_case: TestCase) -> tuple[AnswerEval, str, list]:
+    generated_answer, retrieved_docs = answer_question(test_case.question)
     judge_messages = [
         {
             "role": "system",
@@ -93,13 +93,13 @@ def evaluate_answer(test: TestQuestion) -> tuple[AnswerEval, str, list]:
         {
             "role": "user",
             "content": f"""Question:
-{test.question}
+{test_case.question}
 
 Generated Answer:
 {generated_answer}
 
 Reference Answer:
-{test.reference_answer}
+{test_case.reference_answer}
 
 Please evaluate the generated answer on three dimensions:
 1. Accuracy: How factually correct is it compared to the reference answer? Only give 5/5 scores for perfect answers.
@@ -115,40 +115,40 @@ Provide detailed feedback and scores from 1 (very poor) to 5 (ideal) for each di
 
 
 def evaluate_all_retrieval():
-    tests = load_tests()
-    for index, test in enumerate(tests):
-        retrieval_eval = evaluate_retrieval(test)
-        yield test, retrieval_eval, (index + 1) / len(tests)
+    test_cases = load_test_cases()
+    for index, test_case in enumerate(test_cases):
+        retrieval_eval = evaluate_retrieval(test_case)
+        yield test_case, retrieval_eval, (index + 1) / len(test_cases)
 
 
 def evaluate_all_answers():
-    tests = load_tests()
-    for index, test in enumerate(tests):
-        answer_eval = evaluate_answer(test)[0]
-        yield test, answer_eval, (index + 1) / len(tests)
+    test_cases = load_test_cases()
+    for index, test_case in enumerate(test_cases):
+        answer_eval = evaluate_answer(test_case)[0]
+        yield test_case, answer_eval, (index + 1) / len(test_cases)
 
 
-def run_cli_evaluation(test_row_number: int):
-    tests = load_tests()
+def run_cli_evaluation(test_case_index: int):
+    test_cases = load_test_cases()
 
-    if test_row_number < 0 or test_row_number >= len(tests):
-        print(f"Error: test_row_number must be between 0 and {len(tests) - 1}")
+    if test_case_index < 0 or test_case_index >= len(test_cases):
+        print(f"Error: test_case_index must be between 0 and {len(test_cases) - 1}")
         sys.exit(1)
 
-    test = tests[test_row_number]
+    test_case = test_cases[test_case_index]
 
     print(f"\n{'=' * 80}")
-    print(f"Test #{test_row_number}")
+    print(f"Test Case #{test_case_index}")
     print(f"{'=' * 80}")
-    print(f"Question: {test.question}")
-    print(f"Keywords: {test.keywords}")
-    print(f"Category: {test.category}")
-    print(f"Reference Answer: {test.reference_answer}")
+    print(f"Question: {test_case.question}")
+    print(f"Keywords: {test_case.keywords}")
+    print(f"Category: {test_case.category}")
+    print(f"Reference Answer: {test_case.reference_answer}")
 
     print(f"\n{'=' * 80}")
     print("Retrieval Evaluation")
     print(f"{'=' * 80}")
-    retrieval_eval = evaluate_retrieval(test)
+    retrieval_eval = evaluate_retrieval(test_case)
     print(f"MRR: {retrieval_eval.mrr:.4f}")
     print(f"Mean nDCG: {retrieval_eval.mean_ndcg:.4f}")
     print(f"Keywords Found: {retrieval_eval.found_keywords}/{retrieval_eval.total_keywords}")
@@ -157,7 +157,7 @@ def run_cli_evaluation(test_row_number: int):
     print(f"\n{'=' * 80}")
     print("Answer Evaluation")
     print(f"{'=' * 80}")
-    answer_eval, generated_answer, _ = evaluate_answer(test)
+    answer_eval, generated_answer, _ = evaluate_answer(test_case)
     print(f"\nGenerated Answer:\n{generated_answer}")
     print(f"\nFeedback:\n{answer_eval.feedback}")
     print("\nScores:")
@@ -169,14 +169,14 @@ def run_cli_evaluation(test_row_number: int):
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: uv run eval <test_row_number>")
+        print("Usage: uv run eval <test_case_index>")
         sys.exit(1)
     try:
-        test_row_number = int(sys.argv[1])
+        test_case_index = int(sys.argv[1])
     except ValueError:
-        print("Error: test_row_number must be an integer")
+        print("Error: test_case_index must be an integer")
         sys.exit(1)
-    run_cli_evaluation(test_row_number)
+    run_cli_evaluation(test_case_index)
 
 
 if __name__ == "__main__":
