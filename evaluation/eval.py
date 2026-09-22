@@ -15,10 +15,12 @@ MODEL = "openai/gpt-4.1-nano"
 
 class RetrievalEval(BaseModel):
     mrr: float = Field(description="Mean Reciprocal Rank - average across all keywords")
-    ndcg: float = Field(description="Normalized Discounted Cumulative Gain (binary relevance)")
+    mean_ndcg: float = Field(
+        description="Normalized Discounted Cumulative Gain (binary relevance) - average across all keywords"
+    )
     keywords_found: int = Field(description="Number of keywords found in top-k results")
     total_keywords: int = Field(description="Total number of keywords to find")
-    keyword_coverage: float = Field(description="Percentage of keywords found")
+    keyword_coverage_percent: float = Field(description="Percentage of keywords found")
 
 
 class AnswerEval(BaseModel):
@@ -36,7 +38,7 @@ class AnswerEval(BaseModel):
     )
 
 
-def calculate_mrr(keyword: str, retrieved_docs: list) -> float:
+def calculate_reciprocal_rank(keyword: str, retrieved_docs: list) -> float:
     keyword_lower = keyword.lower()
     for rank, doc in enumerate(retrieved_docs, start=1):
         if keyword_lower in doc.page_content.lower():
@@ -64,19 +66,19 @@ def calculate_ndcg(keyword: str, retrieved_docs: list, k: int = 10) -> float:
 
 def evaluate_retrieval(test: TestQuestion, k: int = 10) -> RetrievalEval:
     retrieved_docs = fetch_context(test.question)
-    mrr_scores = [calculate_mrr(keyword, retrieved_docs) for keyword in test.keywords]
-    avg_mrr = sum(mrr_scores) / len(mrr_scores) if mrr_scores else 0.0
+    reciprocal_ranks = [calculate_reciprocal_rank(keyword, retrieved_docs) for keyword in test.keywords]
+    mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
     ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, k) for keyword in test.keywords]
-    avg_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
-    keywords_found = sum(1 for mrr_score in mrr_scores if mrr_score > 0)
+    mean_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
+    keywords_found = sum(1 for reciprocal_rank in reciprocal_ranks if reciprocal_rank > 0)
     total_keywords = len(test.keywords)
-    keyword_coverage = (keywords_found / total_keywords * 100) if total_keywords > 0 else 0.0
+    keyword_coverage_percent = (keywords_found / total_keywords * 100) if total_keywords > 0 else 0.0
     return RetrievalEval(
-        mrr=avg_mrr,
-        ndcg=avg_ndcg,
+        mrr=mrr,
+        mean_ndcg=mean_ndcg,
         keywords_found=keywords_found,
         total_keywords=total_keywords,
-        keyword_coverage=keyword_coverage,
+        keyword_coverage_percent=keyword_coverage_percent,
     )
 
 
@@ -125,17 +127,17 @@ def evaluate_all_answers():
         yield test, answer_eval, (index + 1) / len(tests)
 
 
-def run_cli_evaluation(test_number: int):
+def run_cli_evaluation(test_row_number: int):
     tests = load_tests()
 
-    if test_number < 0 or test_number >= len(tests):
+    if test_row_number < 0 or test_row_number >= len(tests):
         print(f"Error: test_row_number must be between 0 and {len(tests) - 1}")
         sys.exit(1)
 
-    test = tests[test_number]
+    test = tests[test_row_number]
 
     print(f"\n{'=' * 80}")
-    print(f"Test #{test_number}")
+    print(f"Test #{test_row_number}")
     print(f"{'=' * 80}")
     print(f"Question: {test.question}")
     print(f"Keywords: {test.keywords}")
@@ -145,22 +147,22 @@ def run_cli_evaluation(test_number: int):
     print(f"\n{'=' * 80}")
     print("Retrieval Evaluation")
     print(f"{'=' * 80}")
-    retrieval_result = evaluate_retrieval(test)
-    print(f"MRR: {retrieval_result.mrr:.4f}")
-    print(f"nDCG: {retrieval_result.ndcg:.4f}")
-    print(f"Keywords Found: {retrieval_result.keywords_found}/{retrieval_result.total_keywords}")
-    print(f"Keyword Coverage: {retrieval_result.keyword_coverage:.1f}%")
+    retrieval_eval = evaluate_retrieval(test)
+    print(f"MRR: {retrieval_eval.mrr:.4f}")
+    print(f"Mean nDCG: {retrieval_eval.mean_ndcg:.4f}")
+    print(f"Keywords Found: {retrieval_eval.keywords_found}/{retrieval_eval.total_keywords}")
+    print(f"Keyword Coverage: {retrieval_eval.keyword_coverage_percent:.1f}%")
 
     print(f"\n{'=' * 80}")
     print("Answer Evaluation")
     print(f"{'=' * 80}")
-    answer_result, generated_answer, _ = evaluate_answer(test)
+    answer_eval, generated_answer, _ = evaluate_answer(test)
     print(f"\nGenerated Answer:\n{generated_answer}")
-    print(f"\nFeedback:\n{answer_result.feedback}")
+    print(f"\nFeedback:\n{answer_eval.feedback}")
     print("\nScores:")
-    print(f"  Accuracy:     {answer_result.accuracy:.2f}/5")
-    print(f"  Completeness: {answer_result.completeness:.2f}/5")
-    print(f"  Relevance:    {answer_result.relevance:.2f}/5")
+    print(f"  Accuracy:     {answer_eval.accuracy:.2f}/5")
+    print(f"  Completeness: {answer_eval.completeness:.2f}/5")
+    print(f"  Relevance:    {answer_eval.relevance:.2f}/5")
     print(f"\n{'=' * 80}\n")
 
 
@@ -169,11 +171,11 @@ def main():
         print("Usage: uv run eval <test_row_number>")
         sys.exit(1)
     try:
-        test_number = int(sys.argv[1])
+        test_row_number = int(sys.argv[1])
     except ValueError:
         print("Error: test_row_number must be an integer")
         sys.exit(1)
-    run_cli_evaluation(test_number)
+    run_cli_evaluation(test_row_number)
 
 
 if __name__ == "__main__":
