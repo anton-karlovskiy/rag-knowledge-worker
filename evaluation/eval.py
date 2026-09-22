@@ -114,14 +114,14 @@ Provide detailed feedback and scores from 1 (very poor) to 5 (ideal) for each di
     return answer_eval, generated_answer, retrieved_docs
 
 
-def evaluate_all_retrieval():
+def evaluate_retrieval_all():
     test_cases = load_test_cases()
     for index, test_case in enumerate(test_cases):
         retrieval_eval = evaluate_retrieval(test_case)
         yield test_case, retrieval_eval, (index + 1) / len(test_cases)
 
 
-def evaluate_all_answers():
+def evaluate_answer_all():
     test_cases = load_test_cases()
     for index, test_case in enumerate(test_cases):
         answer_eval = evaluate_answer(test_case)[0]
