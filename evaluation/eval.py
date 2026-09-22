@@ -18,7 +18,7 @@ class RetrievalEval(BaseModel):
     mean_ndcg: float = Field(
         description="Normalized Discounted Cumulative Gain (binary relevance) - average across all keywords"
     )
-    keywords_found: int = Field(description="Number of keywords found in top-k results")
+    found_keywords: int = Field(description="Number of keywords found in top-k results")
     total_keywords: int = Field(description="Total number of keywords to find")
     keyword_coverage_percent: float = Field(description="Percentage of keywords found")
 
@@ -71,13 +71,13 @@ def evaluate_retrieval(test: TestQuestion, k: int = 10) -> RetrievalEval:
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
     ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, k) for keyword in test.keywords]
     mean_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
-    keywords_found = sum(1 for reciprocal_rank in reciprocal_ranks if reciprocal_rank > 0)
+    found_keywords = sum(1 for reciprocal_rank in reciprocal_ranks if reciprocal_rank > 0)
     total_keywords = len(test.keywords)
-    keyword_coverage_percent = (keywords_found / total_keywords * 100) if total_keywords > 0 else 0.0
+    keyword_coverage_percent = (found_keywords / total_keywords * 100) if total_keywords > 0 else 0.0
     return RetrievalEval(
         mrr=mrr,
         mean_ndcg=mean_ndcg,
-        keywords_found=keywords_found,
+        found_keywords=found_keywords,
         total_keywords=total_keywords,
         keyword_coverage_percent=keyword_coverage_percent,
     )
@@ -151,7 +151,7 @@ def run_cli_evaluation(test_row_number: int):
     retrieval_eval = evaluate_retrieval(test)
     print(f"MRR: {retrieval_eval.mrr:.4f}")
     print(f"Mean nDCG: {retrieval_eval.mean_ndcg:.4f}")
-    print(f"Keywords Found: {retrieval_eval.keywords_found}/{retrieval_eval.total_keywords}")
+    print(f"Keywords Found: {retrieval_eval.found_keywords}/{retrieval_eval.total_keywords}")
     print(f"Keyword Coverage: {retrieval_eval.keyword_coverage_percent:.1f}%")
 
     print(f"\n{'=' * 80}")
