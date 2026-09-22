@@ -38,7 +38,8 @@ class AnswerEval(BaseModel):
     )
 
 
-def calculate_reciprocal_rank(keyword: str, retrieved_docs: list) -> float:
+# RR = Reciprocal Rank: 1/rank of the first retrieved doc containing the keyword
+def calculate_rr(keyword: str, retrieved_docs: list) -> float:
     keyword_lower = keyword.lower()
     for rank, doc in enumerate(retrieved_docs, start=1):
         if keyword_lower in doc.page_content.lower():
@@ -66,7 +67,7 @@ def calculate_ndcg(keyword: str, retrieved_docs: list, k: int = 10) -> float:
 
 def evaluate_retrieval(test: TestQuestion, k: int = 10) -> RetrievalEval:
     retrieved_docs = fetch_context(test.question)
-    reciprocal_ranks = [calculate_reciprocal_rank(keyword, retrieved_docs) for keyword in test.keywords]
+    reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test.keywords]
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
     ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, k) for keyword in test.keywords]
     mean_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
