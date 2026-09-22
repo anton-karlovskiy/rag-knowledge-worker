@@ -49,8 +49,8 @@ def calculate_rr(keyword: str, retrieved_docs: list) -> float:
 
 def calculate_dcg(relevances: list[int], k: int) -> float:
     dcg = 0.0
-    for rank in range(min(k, len(relevances))):
-        dcg += relevances[rank] / math.log2(rank + 2)
+    for i in range(min(k, len(relevances))):
+        dcg += relevances[i] / math.log2(i + 2)  # i+2 because rank starts at 1
     return dcg
 
 
