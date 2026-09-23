@@ -50,10 +50,19 @@ uv run eval 0
 
 This runs both retrieval evaluation (MRR, nDCG, keyword coverage) and answer quality evaluation (accuracy, completeness, relevance scored by an LLM judge).
 
+To evaluate all test cases at once, launch the evaluation dashboard:
+
+```bash
+uv run evaluator
+```
+
+Opens a Gradio dashboard with two sections, Retrieval and Answer, each with its own "Run Evaluation" button. Each section shows the averaged metrics across all test cases, color-coded green/amber/red against the thresholds in `evaluator.py`, plus a bar chart breaking down MRR (retrieval) or accuracy (answer) by question category. Answer evaluation runs the full RAG pipeline plus an LLM judge for every test case, so it takes noticeably longer than retrieval evaluation.
+
 ## Project structure
 
 ```
 ├── app.py              # Gradio chat UI
+├── evaluator.py        # Gradio evaluation dashboard over all test cases
 ├── answer.py           # RAG pipeline: query rewriting, retrieval, reranking, generation
 ├── ingest.py           # Document loading, LLM chunking, embedding, ChromaDB storage
 ├── models.py           # Shared data models
