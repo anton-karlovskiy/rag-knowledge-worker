@@ -60,6 +60,20 @@ uv run evaluator
 
 Opens a Gradio dashboard with two sections, Retrieval and Answer, each with its own "Run Evaluation" button. Each section shows the averaged metrics across all test cases, color-coded green/amber/red against the thresholds in `evaluator.py`, plus a bar chart breaking down MRR (retrieval) or accuracy (answer) by question category. Answer evaluation runs the full RAG pipeline plus an LLM judge for every test case, so it takes noticeably longer than retrieval evaluation.
 
+### Results
+
+A full run over all 150 test cases with the default configuration:
+
+![RAG evaluation dashboard](docs/evaluator-dashboard.png)
+
+| Retrieval | Score | Answer | Score |
+|---|---|---|---|
+| MRR | 0.8593 | Accuracy | 4.54 / 5 |
+| nDCG | 0.8457 | Completeness | 4.12 / 5 |
+| Keyword coverage | 93.9% | Relevance | 4.78 / 5 |
+
+Performance is strongest on `relationship`, `temporal`, and `comparative` questions. The weakest categories are `spanning` (lowest MRR, ~0.64) and `holistic` (lowest accuracy, ~3.7 / 5). Both need information pulled from many documents at once, which a top-10 context window only partly covers.
+
 ## Project structure
 
 ```
@@ -68,6 +82,7 @@ Opens a Gradio dashboard with two sections, Retrieval and Answer, each with its 
 ├── answer.py           # RAG pipeline: query rewriting, retrieval, reranking, generation
 ├── ingest.py           # Document loading, LLM chunking, embedding, ChromaDB storage
 ├── models.py           # Shared data models
+├── docs/               # README images
 ├── knowledge-base/
 │   ├── company/        # General company documents
 │   ├── contracts/      # Customer contracts
