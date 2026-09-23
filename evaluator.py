@@ -11,7 +11,7 @@ load_dotenv(override=True)
 THRESHOLDS = {
     "mrr": (0.9, 0.75),
     "ndcg": (0.9, 0.75),
-    "coverage": (90.0, 75.0),
+    "keyword-coverage": (90.0, 75.0),
     # Answer metrics use a 1-5 scale
     "accuracy": (4.5, 4.0),
     "completeness": (4.5, 4.0),
@@ -84,7 +84,7 @@ def run_retrieval_evaluation(progress=gr.Progress()):
     <div style="padding: 0;">
         {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / count, "mrr")}
         {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / count, "ndcg")}
-        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / count, "coverage", is_percentage=True)}
+        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / count, "keyword-coverage", is_percentage=True)}
         {format_complete_html(count)}
     </div>
     """
