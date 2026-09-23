@@ -24,6 +24,8 @@ client = OpenAI()
 
 chroma_client = PersistentClient(path=DB_NAME)
 docs_collection = chroma_client.get_or_create_collection(COLLECTION_NAME)
+if docs_collection.count() == 0:
+    raise RuntimeError(f"Vector store at {DB_NAME} is empty. Run `uv run ingest` first.")
 
 SYSTEM_PROMPT = """
 You are a knowledgeable, friendly assistant representing the company Insurellm.

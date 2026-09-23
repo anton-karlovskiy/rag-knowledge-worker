@@ -42,6 +42,8 @@ Opens a Gradio chat interface in your browser. Ask anything about the company. T
 
 The `evaluation/` folder contains a set of test cases, each with a question, reference answer, and expected keywords.
 
+Evaluation needs the vector store from Step 1 (`preprocessed_db/`, not tracked in git). If it is missing or empty, `app`, `eval`, and `evaluator` exit at startup with an error telling you to run `uv run ingest`.
+
 To evaluate a single test case by index:
 
 ```bash
