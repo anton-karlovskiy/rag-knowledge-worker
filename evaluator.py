@@ -67,24 +67,24 @@ def format_complete_html(count: int) -> str:
 
 def run_retrieval_evaluation(progress=gr.Progress()):
     total_mrr = 0.0
-    total_ndcg = 0.0
-    total_coverage = 0.0
+    total_mean_ndcg = 0.0
+    total_keyword_coverage_percent = 0.0
     category_mrr = defaultdict(list)
     count = 0
 
     for test_case, retrieval_eval, progress_value in evaluate_retrieval_all():
         count += 1
         total_mrr += retrieval_eval.mrr
-        total_ndcg += retrieval_eval.mean_ndcg
-        total_coverage += retrieval_eval.keyword_coverage_percent
+        total_mean_ndcg += retrieval_eval.mean_ndcg
+        total_keyword_coverage_percent += retrieval_eval.keyword_coverage_percent
         category_mrr[test_case.category].append(retrieval_eval.mrr)
         progress(progress_value, desc=f"Evaluating test case {count}...")
 
     final_html = f"""
     <div style="padding: 0;">
         {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / count, "mrr")}
-        {format_metric_html("Normalized DCG (nDCG)", total_ndcg / count, "ndcg")}
-        {format_metric_html("Keyword Coverage", total_coverage / count, "coverage", is_percentage=True)}
+        {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / count, "ndcg")}
+        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / count, "coverage", is_percentage=True)}
         {format_complete_html(count)}
     </div>
     """
