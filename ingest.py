@@ -1,55 +1,20 @@
 from pathlib import Path
-from openai import OpenAI
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
-from chromadb import PersistentClient
-from tqdm import tqdm
-from litellm import completion
-from multiprocessing import Pool
-from tenacity import retry, wait_exponential
-
-from models import Result
+from langchain_community.document_loaders import DirectoryLoader, TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 
 
 load_dotenv(override=True)
 
-MODEL = "openai/gpt-4.1-nano"
-
-DB_NAME = str(Path(__file__).parent / "preprocessed_db")
-COLLECTION_NAME = "docs"
-EMBEDDING_MODEL = "text-embedding-3-large"
+DB_NAME = str(Path(__file__).parent / "vector_db")
 KNOWLEDGE_BASE_PATH = Path(__file__).parent / "knowledge-base"
-AVERAGE_CHUNK_SIZE = 100
-EMBEDDING_BATCH_SIZE = 512
+EMBEDDING_MODEL = "text-embedding-3-large"
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 200
 
-RETRY_WAIT = wait_exponential(multiplier=1, min=10, max=240)
-
-WORKERS = 3
-
-client = OpenAI()
-
-
-class Chunk(BaseModel):
-    headline: str = Field(
-        description="A brief heading for this chunk, typically a few words, that is most likely to be surfaced in a query",
-    )
-    summary: str = Field(
-        description="A few sentences summarizing the content of this chunk to answer common questions"
-    )
-    original_text: str = Field(
-        description="The original text of this chunk from the provided document, exactly as is, not changed in any way"
-    )
-
-    def as_result(self, document):
-        metadata = {"source": document["source"], "type": document["type"]}
-        return Result(
-            page_content=self.headline + "\n\n" + self.summary + "\n\n" + self.original_text,
-            metadata=metadata,
-        )
-
-
-class Chunks(BaseModel):
-    chunks: list[Chunk]
+embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
 
 
 def fetch_documents():
@@ -57,83 +22,35 @@ def fetch_documents():
     for folder in KNOWLEDGE_BASE_PATH.iterdir():
         if not folder.is_dir():
             continue
-        doc_type = folder.name
-        for file in folder.rglob("*.md"):
-            with open(file, "r", encoding="utf-8") as file_handle:
-                documents.append(
-                    {"type": doc_type, "source": file.as_posix(), "text": file_handle.read()}
-                )
+        loader = DirectoryLoader(
+            str(folder), glob="**/*.md", loader_cls=TextLoader, loader_kwargs={"encoding": "utf-8"}
+        )
+        for doc in loader.load():
+            doc.metadata["doc_type"] = folder.name
+            documents.append(doc)
     print(f"Loaded {len(documents)} documents")
     return documents
 
 
-def make_prompt(document):
-    estimated_chunks = (len(document["text"]) // AVERAGE_CHUNK_SIZE) + 1
-    return f"""
-You take a document and you split the document into overlapping chunks for a KnowledgeBase.
-
-The document is from the shared drive of a company called Insurellm.
-The document is of type: {document["type"]}
-The document has been retrieved from: {document["source"]}
-
-A chatbot will use these chunks to answer questions about the company.
-You should divide up the document as you see fit, being sure that the entire document is returned across the chunks - don't leave anything out.
-This document should probably be split into at least {estimated_chunks} chunks, but you can have more or less as appropriate, ensuring that there are individual chunks to answer specific questions.
-There should be overlap between the chunks as appropriate; typically about 25% overlap or about 50 words, so you have the same text in multiple chunks for best retrieval results.
-
-For each chunk, you should provide a headline, a summary, and the original text of the chunk.
-Together your chunks should represent the entire document with overlap.
-
-Here is the document:
-
-{document["text"]}
-
-Respond with the chunks.
-"""
-
-
-def make_messages(document):
-    return [{"role": "user", "content": make_prompt(document)}]
-
-
-@retry(wait=RETRY_WAIT)
-def process_document(document):
-    messages = make_messages(document)
-    response = completion(model=MODEL, messages=messages, response_format=Chunks)
-    doc_as_chunks = Chunks.model_validate_json(response.choices[0].message.content).chunks
-    return [chunk.as_result(document) for chunk in doc_as_chunks]
-
-
 def create_chunks(documents):
-    """Use parallel workers to chunk documents. Set WORKERS=1 if you hit rate limits."""
-    chunks = []
-    with Pool(processes=WORKERS) as pool:
-        for result in tqdm(pool.imap_unordered(process_document, documents), total=len(documents)):
-            chunks.extend(result)
-    return chunks
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
+    return text_splitter.split_documents(documents)
 
 
 def create_embeddings(chunks):
-    chroma_client = PersistentClient(path=DB_NAME)
-    existing_names = [collection.name for collection in chroma_client.list_collections()]
-    if COLLECTION_NAME in existing_names:
-        chroma_client.delete_collection(COLLECTION_NAME)
+    if Path(DB_NAME).exists():
+        Chroma(persist_directory=DB_NAME, embedding_function=embeddings).delete_collection()
 
-    texts = [chunk.page_content for chunk in chunks]
+    vectorstore = Chroma.from_documents(
+        documents=chunks, embedding=embeddings, persist_directory=DB_NAME
+    )
 
-    embeddings = []
-    for batch_start in tqdm(range(0, len(texts), EMBEDDING_BATCH_SIZE), desc="Embedding batches"):
-        batch_texts = texts[batch_start : batch_start + EMBEDDING_BATCH_SIZE]
-        batch_response = client.embeddings.create(model=EMBEDDING_MODEL, input=batch_texts).data
-        embeddings.extend(item.embedding for item in batch_response)
-
-    docs_collection = chroma_client.get_or_create_collection(COLLECTION_NAME)
-
-    ids = [str(index) for index in range(len(chunks))]
-    metadatas = [chunk.metadata for chunk in chunks]
-
-    docs_collection.add(ids=ids, embeddings=embeddings, documents=texts, metadatas=metadatas)
-    print(f"Vectorstore created with {docs_collection.count()} documents")
+    collection = vectorstore._collection
+    count = collection.count()
+    sample_embedding = collection.get(limit=1, include=["embeddings"])["embeddings"][0]
+    dimensions = len(sample_embedding)
+    print(f"There are {count:,} vectors with {dimensions:,} dimensions in the vector store")
+    return vectorstore
 
 
 def main():

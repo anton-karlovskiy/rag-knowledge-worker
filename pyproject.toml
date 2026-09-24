@@ -4,15 +4,16 @@ version = "0.1.0"
 description = "AI knowledge worker using RAG to become an expert on all company-related matters"
 requires-python = ">=3.11"
 dependencies = [
-    "chromadb>=0.5",
     "gradio>=4.0",
+    "langchain-chroma>=0.2.6",
+    "langchain-community>=0.3.30",
+    "langchain-core>=0.3.76",
+    "langchain-openai>=0.3.33",
+    "langchain-text-splitters>=0.3.11",
     "litellm>=1.0",
-    "openai>=1.0",
     "pandas>=2.0",
     "pydantic>=2.0",
     "python-dotenv>=1.0",
-    "tenacity>=8.0",
-    "tqdm>=4.0",
 ]
 
 [project.scripts]
