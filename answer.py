@@ -4,13 +4,12 @@ from langchain_chroma import Chroma
 from langchain_core.messages import SystemMessage, HumanMessage, convert_to_messages
 from langchain_core.documents import Document
 
-from config import DB_NAME, EMBEDDING_MODEL
+from config import DB_NAME, EMBEDDING_MODEL, RETRIEVAL_K
 
 
 load_dotenv(override=True)
 
 MODEL = "gpt-4.1-nano"
-RETRIEVAL_K = 10
 
 SYSTEM_PROMPT = """
 You are a knowledgeable, friendly assistant representing the company Insurellm.
