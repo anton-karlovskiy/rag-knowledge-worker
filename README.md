@@ -60,19 +60,24 @@ Opens a Gradio dashboard with two sections, Retrieval and Answer, each with its 
 
 ### Results
 
-> These results are from the earlier basic pipeline (fixed-size chunks, no query rewriting or reranking). Re-run `uv run evaluator` to get numbers for the current pipeline.
-
-A full run over all 150 test cases with the basic pipeline:
+A full run over all 150 test cases with the default configuration:
 
 ![RAG evaluation dashboard](docs/evaluator-dashboard.png)
 
-| Retrieval | Score | Answer | Score |
-|---|---|---|---|
-| MRR | 0.7919 | Accuracy | 4.21 / 5 |
-| nDCG | 0.7949 | Completeness | 3.92 / 5 |
-| Keyword coverage | 93.0% | Relevance | 4.63 / 5 |
+Compared with the earlier basic pipeline (500-character chunks, no query rewriting or reranking):
 
-Performance is strongest on `direct_fact`, `temporal`, and `relationship` questions. The weakest categories are `spanning` (lowest MRR, ~0.47) and `holistic` (lowest MRR at ~0.57 and lowest accuracy at ~3.0 / 5). Both need information pulled from many documents at once. Ten 500-character chunks only cover a small part of that.
+| Metric | Basic | Current |
+|---|---|---|
+| MRR | 0.7919 | 0.8977 |
+| nDCG | 0.7949 | 0.8696 |
+| Keyword coverage | 93.0% | 95.8% |
+| Accuracy | 4.21 / 5 | 4.67 / 5 |
+| Completeness | 3.92 / 5 | 4.25 / 5 |
+| Relevance | 4.63 / 5 | 4.89 / 5 |
+
+Every metric improved. The biggest gains are on the categories that were weakest before: `spanning` MRR rose from ~0.47 to ~0.69 and `holistic` from ~0.57 to ~0.68. `temporal` and `comparative` questions now score 5 / 5 accuracy on average.
+
+`holistic` is still the weakest category (~3.4 / 5 accuracy). These questions need information pulled from many documents at once, and ten chunks still cover only part of it.
 
 ## Project structure
 
