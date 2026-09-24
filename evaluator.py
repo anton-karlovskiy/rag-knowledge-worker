@@ -1,21 +1,33 @@
 import gradio as gr
 import pandas as pd
 from collections import defaultdict
+from enum import Enum
 from dotenv import load_dotenv
 
 from evaluation.eval import evaluate_retrieval_all, evaluate_answer_all
 
 load_dotenv(override=True)
 
+
+
+class MetricType(Enum):
+    MRR = "mrr"
+    NDCG = "ndcg"
+    KEYWORD_COVERAGE = "keyword-coverage"
+    ACCURACY = "accuracy"
+    COMPLETENESS = "completeness"
+    RELEVANCE = "relevance"
+
+
 # Color coding thresholds: (green, amber). Below amber is red.
-THRESHOLDS = {
-    "mrr": (0.9, 0.75),
-    "ndcg": (0.9, 0.75),
-    "keyword-coverage": (90.0, 75.0),
+THRESHOLDS: dict[MetricType, tuple[float, float]] = {
+    MetricType.MRR: (0.9, 0.75),
+    MetricType.NDCG: (0.9, 0.75),
+    MetricType.KEYWORD_COVERAGE: (90.0, 75.0),
     # Answer metrics use a 1-5 scale
-    "accuracy": (4.5, 4.0),
-    "completeness": (4.5, 4.0),
-    "relevance": (4.5, 4.0),
+    MetricType.ACCURACY: (4.5, 4.0),
+    MetricType.COMPLETENESS: (4.5, 4.0),
+    MetricType.RELEVANCE: (4.5, 4.0),
 }
 
 PLACEHOLDER_HTML = (
@@ -24,9 +36,7 @@ PLACEHOLDER_HTML = (
 )
 
 
-def get_color(value: float, metric_type: str) -> str:
-    if metric_type not in THRESHOLDS:
-        return "black"
+def get_color(value: float, metric_type: MetricType) -> str:
     green, amber = THRESHOLDS[metric_type]
     if value >= green:
         return "green"
@@ -38,7 +48,7 @@ def get_color(value: float, metric_type: str) -> str:
 def format_metric_html(
     label: str,
     value: float,
-    metric_type: str,
+    metric_type: MetricType,
     is_percentage: bool = False,
     score_format: bool = False,
 ) -> str:
@@ -82,9 +92,9 @@ def run_retrieval_evaluation(progress=gr.Progress()):
 
     final_html = f"""
     <div style="padding: 0;">
-        {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / count, "mrr")}
-        {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / count, "ndcg")}
-        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / count, "keyword-coverage", is_percentage=True)}
+        {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / count, MetricType.MRR)}
+        {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / count, MetricType.NDCG)}
+        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / count, MetricType.KEYWORD_COVERAGE, is_percentage=True)}
         {format_complete_html(count)}
     </div>
     """
@@ -115,9 +125,9 @@ def run_answer_evaluation(progress=gr.Progress()):
 
     final_html = f"""
     <div style="padding: 0;">
-        {format_metric_html("Accuracy", total_accuracy / count, "accuracy", score_format=True)}
-        {format_metric_html("Completeness", total_completeness / count, "completeness", score_format=True)}
-        {format_metric_html("Relevance", total_relevance / count, "relevance", score_format=True)}
+        {format_metric_html("Accuracy", total_accuracy / count, MetricType.ACCURACY, score_format=True)}
+        {format_metric_html("Completeness", total_completeness / count, MetricType.COMPLETENESS, score_format=True)}
+        {format_metric_html("Relevance", total_relevance / count, MetricType.RELEVANCE, score_format=True)}
         {format_complete_html(count)}
     </div>
     """
