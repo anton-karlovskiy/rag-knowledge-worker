@@ -1,16 +1,15 @@
-from pathlib import Path
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.messages import SystemMessage, HumanMessage, convert_to_messages
 from langchain_core.documents import Document
 
+from config import DB_NAME, EMBEDDING_MODEL
+
 
 load_dotenv(override=True)
 
 MODEL = "gpt-4.1-nano"
-DB_NAME = str(Path(__file__).parent / "vector_db")
-EMBEDDING_MODEL = "text-embedding-3-large"
 RETRIEVAL_K = 10
 
 SYSTEM_PROMPT = """

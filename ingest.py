@@ -5,12 +5,12 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
+from config import DB_NAME, EMBEDDING_MODEL
+
 
 load_dotenv(override=True)
 
-DB_NAME = str(Path(__file__).parent / "vector_db")
 KNOWLEDGE_BASE_PATH = Path(__file__).parent / "knowledge-base"
-EMBEDDING_MODEL = "text-embedding-3-large"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 200
 

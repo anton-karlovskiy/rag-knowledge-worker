@@ -79,6 +79,7 @@ Performance is strongest on `direct_fact`, `temporal`, and `relationship` questi
 ├── evaluator.py        # Gradio evaluation dashboard over all test cases
 ├── answer.py           # RAG pipeline: retrieval and generation
 ├── ingest.py           # Document loading, chunking, embedding, ChromaDB storage
+├── config.py           # Settings shared by ingestion and retrieval
 ├── docs/               # README images
 ├── knowledge-base/
 │   ├── company/        # General company documents
@@ -105,9 +106,9 @@ Key settings are at the top of each file:
 | Setting | File | Default |
 |---|---|---|
 | `MODEL` | `answer.py` | `gpt-4.1-nano` |
-| `EMBEDDING_MODEL` | `answer.py`, `ingest.py` | `text-embedding-3-large` |
+| `EMBEDDING_MODEL` | `config.py` | `text-embedding-3-large` |
 | `RETRIEVAL_K` | `answer.py` | 10 |
 | `CHUNK_SIZE` | `ingest.py` | 500 |
 | `CHUNK_OVERLAP` | `ingest.py` | 200 |
 
-If you change `EMBEDDING_MODEL`, change it in both files and re-run `uv run ingest`.
+If you change `EMBEDDING_MODEL`, re-run `uv run ingest`.
