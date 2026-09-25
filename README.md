@@ -1,8 +1,8 @@
 # RAG Knowledge Worker
 
-A RAG-based AI assistant that answers questions about a company using its internal documents. Built with LangChain, ChromaDB, OpenAI embeddings, and a Gradio chat interface.
+A RAG-based AI assistant that answers questions about a company using its internal documents. Built with ChromaDB, OpenAI embeddings, LiteLLM, and a Gradio chat interface.
 
-The pipeline splits documents into fixed-size overlapping chunks, retrieves the most similar chunks for each question, and passes them to the model as context.
+An LLM splits each document into overlapping chunks, each with a headline and summary. For each question, the pipeline retrieves candidates for both the original and an LLM-rewritten query, has an LLM rerank them, and passes the best chunks to the model as context.
 
 The included knowledge base covers a fictional insurance company called Insurellm, with documents across four categories: company info, products, employees, and contracts. You can swap in your own markdown documents to adapt this to any company.
 
@@ -22,7 +22,7 @@ cp .env.example .env
 
 **Step 1: Ingest documents**
 
-This reads all markdown files from `knowledge-base/`, splits them into chunks, embeds the chunks, and stores everything in a local ChromaDB database.
+This reads all markdown files from `knowledge-base/`, has an LLM split each one into chunks, embeds the chunks, and stores everything in a local ChromaDB database. It makes one LLM call per document, so it takes a few minutes. If you hit rate limits, set `WORKERS` in `ingest.py` to 1.
 
 ```bash
 uv run ingest
@@ -40,7 +40,7 @@ Opens a Gradio chat interface in your browser. Ask anything about the company. T
 
 The `evaluation/` folder contains a set of test cases, each with a question, reference answer, and expected keywords.
 
-Evaluation needs the vector store from Step 1 (`vector_db/`, not tracked in git). If it is missing or empty, `app`, `eval`, and `evaluator` exit at startup with an error telling you to run `uv run ingest`.
+Evaluation needs the vector store from Step 1 (`preprocessed_db/`, not tracked in git). If it is missing or empty, `app`, `eval`, and `evaluator` exit at startup with an error telling you to run `uv run ingest`.
 
 To evaluate a single test case by index:
 
@@ -64,21 +64,28 @@ A full run over all 150 test cases with the default configuration:
 
 ![RAG evaluation dashboard](docs/evaluator-dashboard.png)
 
-| Retrieval | Score | Answer | Score |
-|---|---|---|---|
-| MRR | 0.7919 | Accuracy | 4.21 / 5 |
-| nDCG | 0.7949 | Completeness | 3.92 / 5 |
-| Keyword coverage | 93.0% | Relevance | 4.63 / 5 |
+Compared with the earlier basic pipeline (500-character chunks, no query rewriting or reranking):
 
-Performance is strongest on `direct_fact`, `temporal`, and `relationship` questions. The weakest categories are `spanning` (lowest MRR, ~0.47) and `holistic` (lowest MRR at ~0.57 and lowest accuracy at ~3.0 / 5). Both need information pulled from many documents at once. Ten 500-character chunks only cover a small part of that.
+| Metric | Basic | Current |
+|---|---|---|
+| MRR | 0.7919 | 0.8977 |
+| nDCG | 0.7949 | 0.8696 |
+| Keyword coverage | 93.0% | 95.8% |
+| Accuracy | 4.21 / 5 | 4.67 / 5 |
+| Completeness | 3.92 / 5 | 4.25 / 5 |
+| Relevance | 4.63 / 5 | 4.89 / 5 |
+
+Every metric improved. The biggest gains are on the categories that were weakest before: `spanning` MRR rose from ~0.47 to ~0.69 and `holistic` from ~0.57 to ~0.68. `temporal` and `comparative` questions now score 5 / 5 accuracy on average.
+
+`holistic` is still the weakest category (~3.4 / 5 accuracy). These questions need information pulled from many documents at once, and ten chunks still cover only part of it.
 
 ## Project structure
 
 ```
 ├── app.py              # Gradio chat UI
 ├── evaluator.py        # Gradio evaluation dashboard over all test cases
-├── answer.py           # RAG pipeline: retrieval and generation
-├── ingest.py           # Document loading, chunking, embedding, ChromaDB storage
+├── answer.py           # RAG pipeline: query rewriting, retrieval, reranking, generation
+├── ingest.py           # Document loading, LLM chunking, embedding, ChromaDB storage
 ├── config.py           # Settings shared by ingestion and retrieval
 ├── docs/               # README images
 ├── knowledge-base/
@@ -94,10 +101,11 @@ Performance is strongest on `direct_fact`, `temporal`, and `relationship` questi
 
 ## How the RAG pipeline works
 
-1. At ingestion, each document is split into 500-character chunks with 200 characters of overlap.
-2. The user's current question is combined with their earlier questions in the conversation.
-3. The 10 chunks most similar to the combined question are retrieved from ChromaDB.
-4. The chunks are injected into the system prompt, and the model generates an answer.
+1. At ingestion, an LLM splits each document into overlapping chunks. Each chunk gets a headline, a summary, and the original text, and all three are embedded together.
+2. An LLM rewrites the user's question into a short, specific query, using the conversation history to resolve references like "they" or "it".
+3. The 20 chunks most similar to the original question and the 20 most similar to the rewritten query are retrieved from ChromaDB and merged, with duplicates removed.
+4. An LLM reranks the merged chunks by relevance to the original question, and the top 10 are kept.
+5. The chunks are injected into the system prompt, and the model generates an answer.
 
 ## Configuration
 
@@ -105,10 +113,14 @@ Key settings are at the top of each file:
 
 | Setting | File | Default |
 |---|---|---|
-| `MODEL` | `answer.py` | `gpt-4.1-nano` |
+| `MODEL` | `answer.py` | `openai/gpt-4.1-nano` |
+| `MODEL` | `ingest.py` | `openai/gpt-4.1-nano` |
 | `EMBEDDING_MODEL` | `config.py` | `text-embedding-3-large` |
-| `RETRIEVAL_K` | `config.py` | 10 |
-| `CHUNK_SIZE` | `ingest.py` | 500 |
-| `CHUNK_OVERLAP` | `ingest.py` | 200 |
+| `RETRIEVAL_K` | `config.py` | 20 (candidates per query) |
+| `FINAL_K` | `config.py` | 10 (chunks kept after reranking) |
+| `AVERAGE_CHUNK_SIZE` | `ingest.py` | 100 (sets the chunk count the LLM is asked for) |
+| `WORKERS` | `ingest.py` | 3 |
 
-If you change `EMBEDDING_MODEL`, re-run `uv run ingest`.
+`MODEL` values are [LiteLLM model names](https://docs.litellm.ai/docs/providers), so you can switch providers (e.g. `groq/openai/gpt-oss-120b`) by changing the name and adding that provider's API key to `.env`.
+
+If you change `EMBEDDING_MODEL` or the ingest `MODEL`, re-run `uv run ingest`.

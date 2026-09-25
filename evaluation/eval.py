@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 from evaluation.test import TestCase, load_test_cases
 from answer import answer_question, fetch_context
-from config import RETRIEVAL_K
+from config import FINAL_K
 
 
 load_dotenv(override=True)
@@ -70,7 +70,7 @@ def evaluate_retrieval(test_case: TestCase) -> RetrievalEval:
     retrieved_docs = fetch_context(test_case.question)
     reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test_case.keywords]
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
-    ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, RETRIEVAL_K) for keyword in test_case.keywords]
+    ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, FINAL_K) for keyword in test_case.keywords]
     mean_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
     found_keywords = sum(1 for reciprocal_rank in reciprocal_ranks if reciprocal_rank > 0)
     total_keywords = len(test_case.keywords)
