@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "The hook input JSON is: $ARGUMENTS\n\nFIRST: if that JSON has \"stop_hook_active\": true, respond with {\"ok\": true} immediately and do nothing else — the turn has already been blocked once and must be allowed to end.\n\nOtherwise, review the conversation and identify any tasks the user explicitly requested. Distinguish between: (1) incomplete actionable tasks — work the user asked to be done that has not been done yet; and (2) standing constraints or preferences — instructions like 'do not commit until I say so', 'always ask before pushing', 'from now on do X' — these are active rules, not tasks to complete, and should NOT be treated as incomplete. Do NOT flag work as incomplete if any of the following hold: the assistant asked a clarifying question and is waiting for a reply; the assistant is blocked waiting for the user to provide input, a decision, a file, or an approval before it can proceed; or the user said they would do the next step themselves. In all of those cases the ball is in the user's court — respond {\"ok\": true}. Only flag something as incomplete when there is concrete work the assistant can do right now with no further input from the user. When genuinely uncertain, respond {\"ok\": true}. If and only if there are incomplete actionable tasks, respond with {\"ok\": false, \"reason\": \"<what remains>\"}. Otherwise respond with {\"ok\": true}."
+          }
+        ]
+      }
+    ]
+  }
+}
