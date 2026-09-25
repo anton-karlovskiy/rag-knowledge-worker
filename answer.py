@@ -1,9 +1,9 @@
 from chromadb import PersistentClient
 from dotenv import load_dotenv
-from litellm import completion
-from openai import OpenAI
+from litellm import ServiceUnavailableError, completion
+from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitError
 from pydantic import BaseModel, Field
-from tenacity import retry, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from config import COLLECTION_NAME, DB_NAME, EMBEDDING_MODEL, FINAL_K, RETRIEVAL_K
 
@@ -53,7 +53,16 @@ user: What role covers? -> Query: What role FooBar covers?
 IMPORTANT: Respond ONLY with the precise knowledgebase query, nothing else.
 """
 
-wait = wait_exponential(multiplier=1, min=10, max=240)
+# Retry only transient API failures (rate limits, network errors, 5xx); let bugs surface immediately.
+# litellm's exceptions subclass openai's, so these also cover completion() calls.
+llm_retry = retry(
+    retry=retry_if_exception_type(
+        (RateLimitError, APIConnectionError, InternalServerError, ServiceUnavailableError)
+    ),
+    wait=wait_exponential(multiplier=1, min=10, max=240),
+    stop=stop_after_attempt(5),
+    reraise=True,
+)
 openai = OpenAI()
 
 chroma = PersistentClient(path=DB_NAME)
@@ -73,15 +82,15 @@ class RankOrder(BaseModel):
     )
 
 
-@retry(wait=wait)
+@llm_retry
 def rerank(question: str, chunks: list[Result]) -> list[Result]:
     """
     Have the LLM reorder the chunks by relevance to the question.
     """
     user_prompt = f"The user has asked the following question:\n\n{question}\n\nOrder all the chunks of text by relevance to the question, from most relevant to least relevant. Include all the chunk ids you are provided with, reranked.\n\n"
     user_prompt += "Here are the chunks:\n\n"
-    for index, chunk in enumerate(chunks, start=1):
-        user_prompt += f"# CHUNK ID: {index}:\n\n{chunk.page_content}\n\n"
+    for index, chunk in enumerate(chunks):
+        user_prompt += f"# CHUNK ID: {index + 1}:\n\n{chunk.page_content}\n\n"
     user_prompt += "Reply only with the list of ranked chunk ids, nothing else."
     messages = [
         {"role": "system", "content": RERANK_SYSTEM_PROMPT},
@@ -92,7 +101,7 @@ def rerank(question: str, chunks: list[Result]) -> list[Result]:
     return [chunks[i - 1] for i in order]
 
 
-@retry(wait=wait)
+@llm_retry
 def rewrite_query(question: str, history: list[dict] | None = None) -> str:
     """
     Rewrite the question into a short, specific query more likely to surface relevant chunks.
@@ -140,7 +149,7 @@ def make_rag_messages(question: str, history: list[dict], chunks: list[Result]) 
     return [{"role": "system", "content": system_prompt}] + history + [{"role": "user", "content": question}]
 
 
-@retry(wait=wait)
+@llm_retry
 def answer_question(question: str, history: list[dict] | None = None) -> tuple[str, list[Result]]:
     """
     Answer the given question with RAG; return the answer and the context chunks.
