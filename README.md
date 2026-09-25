@@ -107,7 +107,7 @@ Key settings are at the top of each file:
 |---|---|---|
 | `MODEL` | `answer.py` | `gpt-4.1-nano` |
 | `EMBEDDING_MODEL` | `config.py` | `text-embedding-3-large` |
-| `RETRIEVAL_K` | `answer.py` | 10 |
+| `RETRIEVAL_K` | `config.py` | 10 |
 | `CHUNK_SIZE` | `ingest.py` | 500 |
 | `CHUNK_OVERLAP` | `ingest.py` | 200 |
 
