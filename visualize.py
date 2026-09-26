@@ -19,16 +19,16 @@ def load_store():
     return np.array(result["embeddings"]), result["documents"], types
 
 
-def plot(vectors, documents, types, dims):
-    reduced = TSNE(n_components=dims, random_state=42).fit_transform(vectors)
+def plot(vectors, documents, types, dimensions):
+    reduced_vectors = TSNE(n_components=dimensions, random_state=42).fit_transform(vectors)
     fig = go.Figure()
     for doc_type in sorted(set(types)):
         idx = [i for i, t in enumerate(types) if t == doc_type]
-        points = reduced[idx]
+        points = reduced_vectors[idx]
         coords = dict(x=points[:, 0], y=points[:, 1])
-        if dims == 3:
+        if dimensions == 3:
             coords["z"] = points[:, 2]
-        trace = go.Scatter3d if dims == 3 else go.Scatter
+        trace = go.Scatter3d if dimensions == 3 else go.Scatter
         fig.add_trace(trace(
             **coords,
             mode="markers",
@@ -38,7 +38,7 @@ def plot(vectors, documents, types, dims):
             hoverinfo="text",
         ))
     fig.update_layout(
-        title=f"{dims}D Chroma Vector Store Visualization",
+        title=f"{dimensions}D Chroma Vector Store Visualization",
         width=900,
         height=700,
         margin=dict(r=10, b=10, l=10, t=40),
