@@ -17,6 +17,7 @@ uv run ingest         # build preprocessed_db/ from knowledge-base/ (one LLM cal
 uv run app            # Gradio chat UI
 uv run eval <index>   # evaluate one test case (retrieval + LLM-judged answer), e.g. `uv run eval 0`
 uv run evaluator      # Gradio dashboard that evaluates all 150 test cases
+uv run visualize      # t-SNE plot of the vector store (--dims 3 for 3D), no LLM calls
 ```
 
 The entry points are defined in `[project.scripts]` in `pyproject.toml`. There is no unit test suite, linter, or formatter configured. "Tests" here means the RAG evaluation in `evaluation/`, and every run makes several LLM calls per question.

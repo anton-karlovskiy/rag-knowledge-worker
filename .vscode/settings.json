@@ -2,6 +2,7 @@
     "cSpell.words": [
         "chromadb",
         "dotenv",
+        "hoverinfo",
         "idcg",
         "inbrowser",
         "Insurellm",
@@ -14,6 +15,7 @@
         "reranking",
         "reranks",
         "tqdm",
+        "TSNE",
         "unranked",
         "vectorstore"
     ]
