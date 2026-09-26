@@ -94,8 +94,7 @@ Respond with the chunks.
 def process_document(document: dict) -> list[Result]:
     messages = [{"role": "user", "content": make_prompt(document)}]
     response = completion(model=MODEL, messages=messages, response_format=Chunks)
-    reply = response.choices[0].message.content
-    doc_as_chunks = Chunks.model_validate_json(reply).chunks
+    doc_as_chunks = Chunks.model_validate_json(response.choices[0].message.content).chunks
     return [chunk.as_result(document) for chunk in doc_as_chunks]
 
 
