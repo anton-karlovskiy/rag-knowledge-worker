@@ -26,7 +26,7 @@ def fetch_documents():
             str(folder), glob="**/*.md", loader_cls=TextLoader, loader_kwargs={"encoding": "utf-8"}
         )
         for doc in loader.load():
-            doc.metadata["doc_type"] = folder.name
+            doc.metadata["type"] = folder.name
             documents.append(doc)
     print(f"Loaded {len(documents)} documents")
     return documents

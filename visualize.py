@@ -15,7 +15,7 @@ def load_store():
     result = collection.get(include=["embeddings", "documents", "metadatas"])
     if not result["ids"]:
         raise RuntimeError(f"Collection '{COLLECTION_NAME}' is empty. Run `uv run ingest` first.")
-    types = [metadata["doc_type"] for metadata in result["metadatas"]]
+    types = [metadata["type"] for metadata in result["metadatas"]]
     return np.array(result["embeddings"]), result["documents"], types
 
 
