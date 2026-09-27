@@ -36,6 +36,15 @@ uv run app
 
 Opens a Gradio chat interface in your browser. Ask anything about the company. The right panel shows the retrieved context chunks that informed each answer.
 
+**Optional: Visualize the vector store**
+
+```bash
+uv run visualize            # 2D t-SNE
+uv run visualize --dims 3   # 3D t-SNE
+```
+
+Projects every chunk embedding with t-SNE and opens an interactive Plotly scatter in your browser, colored by document type. Hover a point to see its text. No LLM calls.
+
 ## Evaluation
 
 The `evaluation/` folder contains a set of test cases, each with a question, reference answer, and expected keywords.

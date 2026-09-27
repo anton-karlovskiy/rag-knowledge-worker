@@ -4,7 +4,7 @@ from langchain_chroma import Chroma
 from langchain_core.messages import SystemMessage, HumanMessage, convert_to_messages
 from langchain_core.documents import Document
 
-from config import DB_NAME, EMBEDDING_MODEL, RETRIEVAL_K
+from config import COLLECTION_NAME, DB_NAME, EMBEDDING_MODEL, RETRIEVAL_K
 
 
 load_dotenv(override=True)
@@ -21,7 +21,9 @@ Context:
 """
 
 embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
-vectorstore = Chroma(persist_directory=DB_NAME, embedding_function=embeddings)
+vectorstore = Chroma(
+    collection_name=COLLECTION_NAME, persist_directory=DB_NAME, embedding_function=embeddings
+)
 if vectorstore._collection.count() == 0:
     raise RuntimeError(f"Vector store at {DB_NAME} is empty. Run `uv run ingest` first.")
 retriever = vectorstore.as_retriever(search_kwargs={"k": RETRIEVAL_K})

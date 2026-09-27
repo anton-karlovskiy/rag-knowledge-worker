@@ -2,18 +2,22 @@
     "cSpell.words": [
         "chromadb",
         "dotenv",
+        "hoverinfo",
         "idcg",
         "inbrowser",
         "Insurellm",
         "knowledgebase",
         "litellm",
         "metadatas",
+        "plotly",
         "pydantic",
         "rerank",
         "reranked",
         "reranking",
         "reranks",
+        "scikit",
         "tqdm",
+        "TSNE",
         "unranked",
         "vectorstore"
     ]
