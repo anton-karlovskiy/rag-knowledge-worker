@@ -33,8 +33,15 @@ Top-level modules are imported flat (`from config import ...`, `from answer impo
 - **`evaluator.py`**: Gradio dashboard. It averages metrics, breaks them down by `test_case.category`, and color-codes them using `THRESHOLDS` keyed by the `MetricType` enum.
 - **`evaluation/test_cases.jsonl`**: one JSON object per line with `question`, `keywords`, `reference_answer`, and `category` (e.g. `direct_fact`, `temporal`, `relationship`, `spanning`, `holistic`).
 
+## Branches
+
+- `main` holds the basic LangChain pipeline (the baseline). `feat/llm-chunking-and-rerank` holds the native LLM pipeline (chromadb + litellm) and is the PR against `main`.
+- The PR must contain only the LangChain → native LLM changes. Commit anything pipeline-agnostic (docs, tooling, evaluation, `visualize.py`, config plumbing) on `main` first. Then run `git rebase main` on the feature branch and `git push --force-with-lease`. Commit on the feature branch only changes that are specific to its pipeline.
+- Keep the shared interfaces identical on both branches (`config.py` names, chunk metadata `{source, type}`) so shared modules stay drop-in.
+- On rebase conflicts in pipeline files (`answer.py`, `ingest.py`, `config.py` values), keep the feature branch version. For `uv.lock`, take either side and run `uv lock`, never hand-merge it.
+
 ## Notes
 
-- The knowledge base is a fictional insurance company, Insurellm. The folder names under `knowledge-base/` become `doc_type` values.
+- The knowledge base is a fictional insurance company, Insurellm. The folder names under `knowledge-base/` become the chunk `type` metadata.
 - When pipeline changes affect quality, re-run the evaluation and update the Results table in `README.md`. The baseline on `main` is MRR 0.79, nDCG 0.79, keyword coverage 93%, and accuracy 4.21/5. `spanning` and `holistic` are the weakest categories.
 - `.claude/skills/` mirrors `.agents/skills/` (tracked in `skills-lock.json`). Use the `caveman-commit` skill style for commit messages (Conventional Commits).

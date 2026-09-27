@@ -121,3 +121,10 @@ Key settings are at the top of each file:
 | `CHUNK_OVERLAP` | `ingest.py` | 200 |
 
 If you change `EMBEDDING_MODEL`, re-run `uv run ingest`.
+
+## Branches
+
+- `main`: the basic LangChain pipeline, the baseline.
+- `feat/llm-chunking-and-rerank`: the native LLM pipeline (LLM chunking, query rewrite, rerank), opened as a PR against `main`.
+
+The PR contains only the LangChain → native LLM changes. Shared work (docs, tooling, evaluation, visualization) is committed on `main`, and the feature branch is rebased onto it.
