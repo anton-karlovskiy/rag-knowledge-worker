@@ -5,7 +5,7 @@ from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitErr
 from pydantic import BaseModel, Field
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from config import COLLECTION_NAME, DB_NAME, EMBEDDING_MODEL, FINAL_K, RETRIEVAL_K
+from config import LLM_COLLECTION_NAME, LLM_DB_NAME, EMBEDDING_MODEL, FINAL_K, LLM_RETRIEVAL_K
 
 
 load_dotenv(override=True)
@@ -65,10 +65,10 @@ llm_retry = retry(
 )
 openai = OpenAI()
 
-chroma = PersistentClient(path=DB_NAME)
-collection = chroma.get_or_create_collection(COLLECTION_NAME)
+chroma = PersistentClient(path=LLM_DB_NAME)
+collection = chroma.get_or_create_collection(LLM_COLLECTION_NAME)
 if collection.count() == 0:
-    raise RuntimeError(f"Vector store at {DB_NAME} is empty. Run `uv run ingest` first.")
+    raise RuntimeError(f"Vector store at {LLM_DB_NAME} is empty. Run `uv run ingest-llm` first.")
 
 
 class Result(BaseModel):
@@ -125,7 +125,7 @@ def merge_chunks(chunks: list[Result], extra: list[Result]) -> list[Result]:
 
 def fetch_context_unranked(question: str) -> list[Result]:
     query = openai.embeddings.create(model=EMBEDDING_MODEL, input=[question]).data[0].embedding
-    results = collection.query(query_embeddings=[query], n_results=RETRIEVAL_K)
+    results = collection.query(query_embeddings=[query], n_results=LLM_RETRIEVAL_K)
     return [
         Result(page_content=document, metadata=metadata)
         for document, metadata in zip(results["documents"][0], results["metadatas"][0])

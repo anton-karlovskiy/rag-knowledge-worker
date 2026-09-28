@@ -6,6 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "chromadb>=1.5.9",
     "gradio>=4.0",
+    "langchain-chroma>=0.2.6",
+    "langchain-community>=0.3.30",
+    "langchain-core>=0.3.76",
+    "langchain-openai>=0.3.33",
+    "langchain-text-splitters>=0.3.11",
     "litellm>=1.0",
     "openai>=2.54.0",
     "pandas>=2.0",
@@ -18,7 +23,8 @@ dependencies = [
 ]
 
 [project.scripts]
-ingest = "ingest:main"
+ingest-llm = "ingest_llm:main"
+ingest-langchain = "ingest_langchain:main"
 app = "app:main"
 eval = "evaluation.eval:main"
 evaluator = "evaluator:main"

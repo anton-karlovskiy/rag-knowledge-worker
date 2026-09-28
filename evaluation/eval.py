@@ -1,3 +1,4 @@
+import argparse
 import sys
 import math
 from pydantic import BaseModel, Field
@@ -5,7 +6,7 @@ from litellm import completion
 from dotenv import load_dotenv
 
 from evaluation.test import TestCase, load_test_cases
-from answer import answer_question, fetch_context
+from pipelines import DEFAULT_PIPELINE, PIPELINES, get_pipeline
 from config import FINAL_K
 
 
@@ -66,8 +67,8 @@ def calculate_ndcg(keyword: str, retrieved_docs: list, k: int) -> float:
     return dcg / idcg if idcg > 0 else 0.0
 
 
-def evaluate_retrieval(test_case: TestCase) -> RetrievalEval:
-    retrieved_docs = fetch_context(test_case.question)
+def evaluate_retrieval(test_case: TestCase, pipeline: str = DEFAULT_PIPELINE) -> RetrievalEval:
+    retrieved_docs = get_pipeline(pipeline).fetch_context(test_case.question)
     reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test_case.keywords]
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
     ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, FINAL_K) for keyword in test_case.keywords]
@@ -84,8 +85,8 @@ def evaluate_retrieval(test_case: TestCase) -> RetrievalEval:
     )
 
 
-def evaluate_answer(test_case: TestCase) -> tuple[AnswerEval, str, list]:
-    generated_answer, retrieved_docs = answer_question(test_case.question)
+def evaluate_answer(test_case: TestCase, pipeline: str = DEFAULT_PIPELINE) -> tuple[AnswerEval, str, list]:
+    generated_answer, retrieved_docs = get_pipeline(pipeline).answer_question(test_case.question)
     judge_messages = [
         {
             "role": "system",
@@ -115,21 +116,21 @@ Provide detailed feedback and scores from 1 (very poor) to 5 (ideal) for each di
     return answer_eval, generated_answer, retrieved_docs
 
 
-def evaluate_retrieval_all():
+def evaluate_retrieval_all(pipeline: str = DEFAULT_PIPELINE):
     test_cases = load_test_cases()
     for index, test_case in enumerate(test_cases):
-        retrieval_eval = evaluate_retrieval(test_case)
+        retrieval_eval = evaluate_retrieval(test_case, pipeline)
         yield test_case, retrieval_eval, (index + 1) / len(test_cases)
 
 
-def evaluate_answer_all():
+def evaluate_answer_all(pipeline: str = DEFAULT_PIPELINE):
     test_cases = load_test_cases()
     for index, test_case in enumerate(test_cases):
-        answer_eval = evaluate_answer(test_case)[0]
+        answer_eval = evaluate_answer(test_case, pipeline)[0]
         yield test_case, answer_eval, (index + 1) / len(test_cases)
 
 
-def run_cli_evaluation(test_case_index: int):
+def run_cli_evaluation(test_case_index: int, pipeline: str = DEFAULT_PIPELINE):
     test_cases = load_test_cases()
 
     if test_case_index < 0 or test_case_index >= len(test_cases):
@@ -139,7 +140,7 @@ def run_cli_evaluation(test_case_index: int):
     test_case = test_cases[test_case_index]
 
     print(f"\n{'=' * 80}")
-    print(f"Test Case #{test_case_index}")
+    print(f"Test Case #{test_case_index} ({pipeline} pipeline)")
     print(f"{'=' * 80}")
     print(f"Question: {test_case.question}")
     print(f"Keywords: {test_case.keywords}")
@@ -149,7 +150,7 @@ def run_cli_evaluation(test_case_index: int):
     print(f"\n{'=' * 80}")
     print("Retrieval Evaluation")
     print(f"{'=' * 80}")
-    retrieval_eval = evaluate_retrieval(test_case)
+    retrieval_eval = evaluate_retrieval(test_case, pipeline)
     print(f"MRR: {retrieval_eval.mrr:.4f}")
     print(f"Mean nDCG: {retrieval_eval.mean_ndcg:.4f}")
     print(f"Keywords Found: {retrieval_eval.found_keywords}/{retrieval_eval.total_keywords}")
@@ -158,7 +159,7 @@ def run_cli_evaluation(test_case_index: int):
     print(f"\n{'=' * 80}")
     print("Answer Evaluation")
     print(f"{'=' * 80}")
-    answer_eval, generated_answer, _ = evaluate_answer(test_case)
+    answer_eval, generated_answer, _ = evaluate_answer(test_case, pipeline)
     print(f"\nGenerated Answer:\n{generated_answer}")
     print(f"\nFeedback:\n{answer_eval.feedback}")
     print("\nScores:")
@@ -169,15 +170,11 @@ def run_cli_evaluation(test_case_index: int):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: uv run eval <test_case_index>")
-        sys.exit(1)
-    try:
-        test_case_index = int(sys.argv[1])
-    except ValueError:
-        print("Error: test_case_index must be an integer")
-        sys.exit(1)
-    run_cli_evaluation(test_case_index)
+    parser = argparse.ArgumentParser(description="Evaluate one test case")
+    parser.add_argument("test_case_index", type=int)
+    parser.add_argument("--pipeline", choices=list(PIPELINES), default=DEFAULT_PIPELINE)
+    args = parser.parse_args()
+    run_cli_evaluation(args.test_case_index, args.pipeline)
 
 
 if __name__ == "__main__":

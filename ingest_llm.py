@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from tenacity import retry, wait_exponential
 from tqdm import tqdm
 
-from config import COLLECTION_NAME, DB_NAME, EMBEDDING_MODEL
+from config import LLM_COLLECTION_NAME, LLM_DB_NAME, EMBEDDING_MODEL
 
 
 load_dotenv(override=True)
@@ -119,16 +119,16 @@ def embed(texts: list[str]) -> list[list[float]]:
 
 
 def create_embeddings(chunks: list[Result]) -> None:
-    chroma = PersistentClient(path=DB_NAME)
-    if COLLECTION_NAME in [c.name for c in chroma.list_collections()]:
-        chroma.delete_collection(COLLECTION_NAME)
+    chroma = PersistentClient(path=LLM_DB_NAME)
+    if LLM_COLLECTION_NAME in [c.name for c in chroma.list_collections()]:
+        chroma.delete_collection(LLM_COLLECTION_NAME)
 
     texts = [chunk.page_content for chunk in chunks]
     vectors = embed(texts)
     ids = [str(i) for i in range(len(chunks))]
     metadatas = [chunk.metadata for chunk in chunks]
 
-    collection = chroma.get_or_create_collection(COLLECTION_NAME)
+    collection = chroma.get_or_create_collection(LLM_COLLECTION_NAME)
     collection.add(ids=ids, embeddings=vectors, documents=texts, metadatas=metadatas)
     print(f"There are {collection.count():,} vectors with {len(vectors[0]):,} dimensions in the vector store")
 

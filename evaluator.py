@@ -5,6 +5,7 @@ from enum import Enum
 from dotenv import load_dotenv
 
 from evaluation.eval import evaluate_retrieval_all, evaluate_answer_all
+from pipelines import DEFAULT_PIPELINE, LABELS
 
 load_dotenv(override=True)
 
@@ -75,14 +76,14 @@ def format_complete_html(count: int) -> str:
     """
 
 
-def run_retrieval_evaluation(progress=gr.Progress()):
+def run_retrieval_evaluation(pipeline, progress=gr.Progress()):
     total_mrr = 0.0
     total_mean_ndcg = 0.0
     total_keyword_coverage_percent = 0.0
     category_mrr = defaultdict(list)
     count = 0
 
-    for test_case, retrieval_eval, progress_value in evaluate_retrieval_all():
+    for test_case, retrieval_eval, progress_value in evaluate_retrieval_all(pipeline):
         count += 1
         total_mrr += retrieval_eval.mrr
         total_mean_ndcg += retrieval_eval.mean_ndcg
@@ -108,14 +109,14 @@ def run_retrieval_evaluation(progress=gr.Progress()):
     return final_html, category_df
 
 
-def run_answer_evaluation(progress=gr.Progress()):
+def run_answer_evaluation(pipeline, progress=gr.Progress()):
     total_accuracy = 0.0
     total_completeness = 0.0
     total_relevance = 0.0
     category_accuracy = defaultdict(list)
     count = 0
 
-    for test_case, answer_eval, progress_value in evaluate_answer_all():
+    for test_case, answer_eval, progress_value in evaluate_answer_all(pipeline):
         count += 1
         total_accuracy += answer_eval.accuracy
         total_completeness += answer_eval.completeness
@@ -147,6 +148,11 @@ def main():
     with gr.Blocks(title="RAG Evaluation Dashboard", theme=theme) as ui:
         gr.Markdown("# RAG Evaluation Dashboard")
         gr.Markdown("Evaluate retrieval and answer quality for the Insurellm RAG system")
+        pipeline = gr.Radio(
+            choices=[(label, name) for name, label in LABELS.items()],
+            value=DEFAULT_PIPELINE,
+            label="RAG Pipeline",
+        )
 
         gr.Markdown("## Retrieval Evaluation")
         retrieval_button = gr.Button("Run Evaluation", variant="primary", size="lg")
@@ -177,9 +183,9 @@ def main():
                 )
 
         retrieval_button.click(
-            fn=run_retrieval_evaluation, outputs=[retrieval_metrics, retrieval_chart]
+            fn=run_retrieval_evaluation, inputs=pipeline, outputs=[retrieval_metrics, retrieval_chart]
         )
-        answer_button.click(fn=run_answer_evaluation, outputs=[answer_metrics, answer_chart])
+        answer_button.click(fn=run_answer_evaluation, inputs=pipeline, outputs=[answer_metrics, answer_chart])
 
     ui.launch(inbrowser=True)
 

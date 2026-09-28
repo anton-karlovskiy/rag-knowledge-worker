@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 .venv/
-preprocessed_db/
-vector_db/
+llm_db/
+langchain_db/
 *.egg-info/
 dist/

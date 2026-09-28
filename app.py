@@ -1,7 +1,7 @@
 import gradio as gr
 from dotenv import load_dotenv
 
-from answer import answer_question
+from pipelines import DEFAULT_PIPELINE, LABELS, get_pipeline
 
 load_dotenv(override=True)
 
@@ -14,10 +14,10 @@ def format_context(context_chunks):
     return formatted
 
 
-def chat(history):
+def chat(history, pipeline):
     latest_question = history[-1]["content"]
     prior_messages = history[:-1]
-    answer, context_chunks = answer_question(latest_question, prior_messages)
+    answer, context_chunks = get_pipeline(pipeline).answer_question(latest_question, prior_messages)
     history.append({"role": "assistant", "content": answer})
     return history, format_context(context_chunks)
 
@@ -30,6 +30,11 @@ def main():
 
     with gr.Blocks(title="Insurellm Expert Assistant", theme=theme) as ui:
         gr.Markdown("# Insurellm Expert Assistant\nAsk me anything about Insurellm!")
+        pipeline = gr.Radio(
+            choices=[(label, name) for name, label in LABELS.items()],
+            value=DEFAULT_PIPELINE,
+            label="RAG Pipeline",
+        )
 
         with gr.Row():
             with gr.Column(scale=1):
@@ -52,7 +57,7 @@ def main():
 
         message.submit(
             put_message_in_chatbot, inputs=[message, chatbot], outputs=[message, chatbot]
-        ).then(chat, inputs=chatbot, outputs=[chatbot, context_markdown])
+        ).then(chat, inputs=[chatbot, pipeline], outputs=[chatbot, context_markdown])
 
     ui.launch(inbrowser=True)
 
