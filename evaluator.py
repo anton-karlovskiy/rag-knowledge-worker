@@ -145,7 +145,7 @@ def run_answer_evaluation(pipeline, progress=gr.Progress()):
 def main():
     theme = gr.themes.Soft(font=["Inter", "system-ui", "sans-serif"])
 
-    with gr.Blocks(title="RAG Evaluation Dashboard", theme=theme) as ui:
+    with gr.Blocks(title="RAG Evaluation Dashboard") as ui:
         gr.Markdown("# RAG Evaluation Dashboard")
         gr.Markdown("Evaluate retrieval and answer quality for the Insurellm RAG system")
         pipeline = gr.Radio(
@@ -187,7 +187,7 @@ def main():
         )
         answer_button.click(fn=run_answer_evaluation, inputs=pipeline, outputs=[answer_metrics, answer_chart])
 
-    ui.launch(inbrowser=True)
+    ui.launch(inbrowser=True, theme=theme)
 
 
 if __name__ == "__main__":

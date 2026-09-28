@@ -5,7 +5,7 @@ description = "AI knowledge worker using RAG to become an expert on all company-
 requires-python = ">=3.11"
 dependencies = [
     "chromadb>=1.5.9",
-    "gradio>=4.0",
+    "gradio>=6.0",
     "langchain-chroma>=0.2.6",
     "langchain-community>=0.3.30",
     "langchain-core>=0.3.76",
