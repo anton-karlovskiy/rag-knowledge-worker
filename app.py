@@ -14,9 +14,19 @@ def format_context(context_chunks):
     return formatted
 
 
+def to_text(content) -> str:
+    """
+    Gradio 6 stores message content as a list of blocks, e.g. [{"type": "text", "text": "..."}].
+    """
+    if isinstance(content, str):
+        return content
+    return "\n".join(block["text"] for block in content if block.get("type") == "text")
+
+
 def chat(history, pipeline):
-    latest_question = history[-1]["content"]
-    prior_messages = history[:-1]
+    messages = [{"role": message["role"], "content": to_text(message["content"])} for message in history]
+    latest_question = messages[-1]["content"]
+    prior_messages = messages[:-1]
     answer, context_chunks = get_pipeline(pipeline).answer_question(latest_question, prior_messages)
     history.append({"role": "assistant", "content": answer})
     return history, format_context(context_chunks)
