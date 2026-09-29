@@ -1,3 +1,5 @@
+from pathlib import PurePath
+
 import gradio as gr
 from dotenv import load_dotenv
 
@@ -6,10 +8,20 @@ from pipelines import DEFAULT_PIPELINE, PIPELINE_LABELS, get_pipeline
 load_dotenv(override=True)
 
 
+def display_source(source: str) -> str:
+    """
+    Show the source path relative to knowledge-base/, hiding the local directory it was ingested from.
+    """
+    parts = PurePath(source).parts
+    if "knowledge-base" not in parts:
+        return source
+    return "/".join(parts[parts.index("knowledge-base") + 1:])
+
+
 def format_context(context_chunks):
     formatted = "<h2 style='color: #ff7800;'>Relevant Context</h2>\n\n"
     for chunk in context_chunks:
-        formatted += f"<span style='color: #ff7800;'>Source: {chunk.metadata['source']}</span>\n\n"
+        formatted += f"<span style='color: #ff7800;'>Source: {display_source(chunk.metadata['source'])}</span>\n\n"
         formatted += chunk.page_content + "\n\n"
     return formatted
 

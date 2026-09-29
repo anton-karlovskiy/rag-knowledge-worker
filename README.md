@@ -42,6 +42,8 @@ uv run app
 
 Opens a Gradio chat interface in your browser. Ask anything about the company. The right panel shows the retrieved context chunks that informed each answer. The **RAG Pipeline** switch at the top picks the LangChain or LLM (chunking + rerank) pipeline per question.
 
+![Insurellm chat app with retrieved context](docs/app.png)
+
 **Optional: Visualize the vector store**
 
 ```bash
@@ -52,6 +54,10 @@ uv run visualize --pipeline langchain --dimensions 3   # 3D t-SNE of the LangCha
 ```
 
 Projects every chunk embedding with t-SNE and opens an interactive Plotly scatter in your browser, colored by document type. Hover a point to see its text. No LLM calls.
+
+| LLM store (491 chunks) | LangChain store (970 chunks) |
+|---|---|
+| ![2D t-SNE of the LLM vector store](docs/tsne-llm.png) | ![2D t-SNE of the LangChain vector store](docs/tsne-langchain.png) |
 
 ## Evaluation
 
