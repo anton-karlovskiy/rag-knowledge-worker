@@ -5,7 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
-from config import COLLECTION_NAME, DB_NAME, EMBEDDING_MODEL
+from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_NAME, EMBEDDING_MODEL
 
 
 load_dotenv(override=True)
@@ -38,13 +38,13 @@ def create_chunks(documents):
 
 
 def create_embeddings(chunks):
-    if Path(DB_NAME).exists():
+    if Path(LANGCHAIN_DB_NAME).exists():
         Chroma(
-            collection_name=COLLECTION_NAME, persist_directory=DB_NAME, embedding_function=embeddings
+            collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_NAME, embedding_function=embeddings
         ).delete_collection()
 
     vectorstore = Chroma.from_documents(
-        documents=chunks, embedding=embeddings, collection_name=COLLECTION_NAME, persist_directory=DB_NAME
+        documents=chunks, embedding=embeddings, collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_NAME
     )
 
     collection = vectorstore._collection

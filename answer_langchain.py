@@ -4,7 +4,7 @@ from langchain_chroma import Chroma
 from langchain_core.messages import SystemMessage, HumanMessage, convert_to_messages
 from langchain_core.documents import Document
 
-from config import COLLECTION_NAME, DB_NAME, EMBEDDING_MODEL, RETRIEVAL_K
+from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_NAME, EMBEDDING_MODEL, FINAL_K
 
 
 load_dotenv(override=True)
@@ -22,17 +22,18 @@ Context:
 
 embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
 vectorstore = Chroma(
-    collection_name=COLLECTION_NAME, persist_directory=DB_NAME, embedding_function=embeddings
+    collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_NAME, embedding_function=embeddings
 )
 if vectorstore._collection.count() == 0:
-    raise RuntimeError(f"Vector store at {DB_NAME} is empty. Run `uv run ingest` first.")
-retriever = vectorstore.as_retriever(search_kwargs={"k": RETRIEVAL_K})
+    raise RuntimeError(f"Vector store at {LANGCHAIN_DB_NAME} is empty. Run `uv run ingest-langchain` first.")
+retriever = vectorstore.as_retriever(search_kwargs={"k": FINAL_K})
 llm = ChatOpenAI(temperature=0, model=MODEL)
 
 
-def fetch_context(question: str) -> list[Document]:
+def fetch_context(question: str, history: list[dict] | None = None) -> list[Document]:
     """
     Retrieve relevant context documents for a question.
+    history is accepted only to match the LLM pipeline's interface; answer_question folds it into the question.
     """
     return retriever.invoke(question)
 
@@ -50,7 +51,7 @@ def answer_question(question: str, history: list[dict] | None = None) -> tuple[s
     """
     Answer the given question with RAG; return the answer and the context documents.
     """
-    history = history or []
+    history = [{"role": message["role"], "content": message["content"]} for message in history or []]
     combined = combined_question(question, history)
     docs = fetch_context(combined)
     context = "\n\n".join(doc.page_content for doc in docs)

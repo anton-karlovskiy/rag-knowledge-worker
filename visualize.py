@@ -4,17 +4,23 @@ import plotly.graph_objects as go
 from chromadb import PersistentClient
 from sklearn.manifold import TSNE
 
-from config import COLLECTION_NAME, DB_NAME
+from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_NAME, LLM_COLLECTION_NAME, LLM_DB_NAME
+from pipelines import DEFAULT_PIPELINE, PIPELINES
 
 
 COLORS = {"products": "blue", "employees": "green", "contracts": "red", "company": "orange"}
+STORES = {
+    "llm": (LLM_DB_NAME, LLM_COLLECTION_NAME),
+    "langchain": (LANGCHAIN_DB_NAME, LANGCHAIN_COLLECTION_NAME),
+}
 
 
-def load_store():
-    collection = PersistentClient(path=DB_NAME).get_or_create_collection(COLLECTION_NAME)
+def load_store(pipeline: str):
+    db_name, collection_name = STORES[pipeline]
+    collection = PersistentClient(path=db_name).get_or_create_collection(collection_name)
     result = collection.get(include=["embeddings", "documents", "metadatas"])
     if not result["ids"]:
-        raise RuntimeError(f"Collection '{COLLECTION_NAME}' is empty. Run `uv run ingest` first.")
+        raise RuntimeError(f"Collection '{collection_name}' is empty. Run `uv run ingest-{pipeline}` first.")
     types = [metadata["type"] for metadata in result["metadatas"]]
     return np.array(result["embeddings"]), result["documents"], types
 
@@ -48,11 +54,12 @@ def plot(vectors, documents, types, dimensions):
 
 def main():
     parser = argparse.ArgumentParser(description="Visualize the vector store with t-SNE")
-    parser.add_argument("--dims", type=int, choices=[2, 3], default=2)
+    parser.add_argument("--dimensions", type=int, choices=[2, 3], default=2)
+    parser.add_argument("--pipeline", choices=list(PIPELINES), default=DEFAULT_PIPELINE)
     args = parser.parse_args()
-    vectors, documents, types = load_store()
+    vectors, documents, types = load_store(args.pipeline)
     print(f"Running t-SNE on {len(vectors)} chunks...")
-    plot(vectors, documents, types, args.dims).show()
+    plot(vectors, documents, types, args.dimensions).show()
 
 
 if __name__ == "__main__":

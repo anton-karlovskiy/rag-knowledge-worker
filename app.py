@@ -1,7 +1,7 @@
 import gradio as gr
 from dotenv import load_dotenv
 
-from answer import answer_question
+from pipelines import DEFAULT_PIPELINE, LABELS, get_pipeline
 
 load_dotenv(override=True)
 
@@ -14,10 +14,20 @@ def format_context(context_chunks):
     return formatted
 
 
-def chat(history):
-    latest_question = history[-1]["content"]
-    prior_messages = history[:-1]
-    answer, context_chunks = answer_question(latest_question, prior_messages)
+def to_text(content) -> str:
+    """
+    Gradio 6 stores message content as a list of blocks, e.g. [{"type": "text", "text": "..."}].
+    """
+    if isinstance(content, str):
+        return content
+    return "\n".join(block["text"] for block in content if block.get("type") == "text")
+
+
+def chat(history, pipeline):
+    messages = [{"role": message["role"], "content": to_text(message["content"])} for message in history]
+    latest_question = messages[-1]["content"]
+    prior_messages = messages[:-1]
+    answer, context_chunks = get_pipeline(pipeline).answer_question(latest_question, prior_messages)
     history.append({"role": "assistant", "content": answer})
     return history, format_context(context_chunks)
 
@@ -28,13 +38,18 @@ def main():
 
     theme = gr.themes.Soft(font=["Inter", "system-ui", "sans-serif"])
 
-    with gr.Blocks(title="Insurellm Expert Assistant", theme=theme) as ui:
+    with gr.Blocks(title="Insurellm Expert Assistant") as ui:
         gr.Markdown("# Insurellm Expert Assistant\nAsk me anything about Insurellm!")
+        pipeline = gr.Radio(
+            choices=[(label, name) for name, label in LABELS.items()],
+            value=DEFAULT_PIPELINE,
+            label="RAG Pipeline",
+        )
 
         with gr.Row():
             with gr.Column(scale=1):
                 chatbot = gr.Chatbot(
-                    label="Conversation", height=600, type="messages", show_copy_button=True
+                    label="Conversation", height=600, buttons=["copy"]
                 )
                 message = gr.Textbox(
                     label="Your Question",
@@ -52,9 +67,9 @@ def main():
 
         message.submit(
             put_message_in_chatbot, inputs=[message, chatbot], outputs=[message, chatbot]
-        ).then(chat, inputs=chatbot, outputs=[chatbot, context_markdown])
+        ).then(chat, inputs=[chatbot, pipeline], outputs=[chatbot, context_markdown])
 
-    ui.launch(inbrowser=True)
+    ui.launch(inbrowser=True, theme=theme)
 
 
 if __name__ == "__main__":
