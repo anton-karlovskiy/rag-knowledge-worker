@@ -25,7 +25,7 @@ cp .env.example .env
 
 **Step 1: Ingest documents**
 
-This reads all markdown files from `knowledge-base/`, has an LLM split each one into chunks, embeds the chunks, and stores everything in a local ChromaDB database. It makes one LLM call per document, so it takes a few minutes. If you hit rate limits, set `WORKERS` in `ingest_llm.py` to 1.
+This reads all markdown files from `knowledge-base/`, has an LLM split each one into chunks, embeds the chunks, and stores everything in a local ChromaDB database. It makes one LLM call per document, so it takes a few minutes. If you hit rate limits, set `MAX_WORKERS` in `ingest_llm.py` to 1.
 
 ```bash
 uv run ingest-llm         # LLM pipeline -> llm_db/
@@ -73,7 +73,7 @@ To evaluate all test cases at once, launch the evaluation dashboard:
 uv run evaluator
 ```
 
-Opens a Gradio dashboard with a pipeline switch and two sections, Retrieval and Answer, each with its own "Run Evaluation" button. Each section shows the averaged metrics across all test cases, color-coded green/amber/red against the thresholds in `evaluator.py`, plus a bar chart breaking down MRR (retrieval) or accuracy (answer) by question category. Answer evaluation runs the full RAG pipeline plus an LLM judge for every test case, so it takes noticeably longer than retrieval evaluation.
+Opens a Gradio dashboard with a pipeline switch and two sections, Retrieval and Answer, each with its own "Run Evaluation" button. Each section shows the averaged metrics across all test cases, color-coded green/amber/red against the thresholds in `eval_dashboard.py`, plus a bar chart breaking down MRR (retrieval) or accuracy (answer) by question category. Answer evaluation runs the full RAG pipeline plus an LLM judge for every test case, so it takes noticeably longer than retrieval evaluation.
 
 ### Results
 
@@ -106,7 +106,7 @@ Every metric improved. The biggest gains are on the categories that were weakest
 
 ```
 ├── app.py              # Gradio chat UI
-├── evaluator.py        # Gradio evaluation dashboard over all test cases
+├── eval_dashboard.py   # Gradio evaluation dashboard over all test cases
 ├── pipelines.py        # Pipeline registry: lazily loads the module selected in the UI
 ├── answer_llm.py       # LLM RAG pipeline: query rewriting, retrieval, reranking, generation
 ├── ingest_llm.py       # LLM ingestion: LLM chunking, embedding, ChromaDB storage
@@ -120,8 +120,8 @@ Every metric improved. The biggest gains are on the categories that were weakest
 │   ├── employees/      # Employee profiles
 │   └── products/       # Product descriptions
 └── evaluation/
-    ├── eval.py         # Retrieval and answer quality evaluation
-    ├── test.py         # Test case model and loader
+    ├── evaluate.py     # Retrieval and answer quality evaluation
+    ├── test_cases.py   # Test case model and loader
     └── test_cases.jsonl # Test cases: questions, reference answers, and keywords
 ```
 
@@ -150,7 +150,7 @@ Key settings are at the top of each file:
 | `FINAL_K` | `config.py` | 10 (chunks kept after reranking, or retrieved by the LangChain pipeline) |
 | `CHUNK_SIZE` / `CHUNK_OVERLAP` | `ingest_langchain.py` | 500 / 200 characters |
 | `AVERAGE_CHUNK_SIZE` | `ingest_llm.py` | 100 (sets the chunk count the LLM is asked for) |
-| `WORKERS` | `ingest_llm.py` | 3 |
+| `MAX_WORKERS` | `ingest_llm.py` | 3 |
 
 In the LLM pipeline, `MODEL` values are [LiteLLM model names](https://docs.litellm.ai/docs/providers), so you can switch providers (e.g. `groq/openai/gpt-oss-120b`) by changing the name and adding that provider's API key to `.env`.
 

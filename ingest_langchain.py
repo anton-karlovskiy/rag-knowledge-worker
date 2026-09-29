@@ -5,7 +5,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
-from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_NAME, EMBEDDING_MODEL
+from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_PATH, EMBEDDING_MODEL
 
 
 load_dotenv(override=True)
@@ -17,7 +17,7 @@ CHUNK_OVERLAP = 200
 embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
 
 
-def fetch_documents():
+def load_documents():
     documents = []
     for folder in KNOWLEDGE_BASE_PATH.iterdir():
         if not folder.is_dir():
@@ -37,14 +37,14 @@ def create_chunks(documents):
     return text_splitter.split_documents(documents)
 
 
-def create_embeddings(chunks):
-    if Path(LANGCHAIN_DB_NAME).exists():
+def build_vector_store(chunks):
+    if Path(LANGCHAIN_DB_PATH).exists():
         Chroma(
-            collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_NAME, embedding_function=embeddings
+            collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_PATH, embedding_function=embeddings
         ).delete_collection()
 
     vectorstore = Chroma.from_documents(
-        documents=chunks, embedding=embeddings, collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_NAME
+        documents=chunks, embedding=embeddings, collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_PATH
     )
 
     collection = vectorstore._collection
@@ -56,9 +56,9 @@ def create_embeddings(chunks):
 
 
 def main():
-    documents = fetch_documents()
+    documents = load_documents()
     chunks = create_chunks(documents)
-    create_embeddings(chunks)
+    build_vector_store(chunks)
     print("Ingestion complete")
 
 

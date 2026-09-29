@@ -4,14 +4,14 @@ from langchain_chroma import Chroma
 from langchain_core.messages import SystemMessage, HumanMessage, convert_to_messages
 from langchain_core.documents import Document
 
-from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_NAME, EMBEDDING_MODEL, FINAL_K
+from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_PATH, EMBEDDING_MODEL, FINAL_K
 
 
 load_dotenv(override=True)
 
 MODEL = "gpt-4.1-nano"
 
-SYSTEM_PROMPT = """
+ANSWER_SYSTEM_PROMPT = """
 You are a knowledgeable, friendly assistant representing the company Insurellm.
 You are chatting with a user about Insurellm.
 If relevant, use the given context to answer any question.
@@ -22,10 +22,10 @@ Context:
 
 embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
 vectorstore = Chroma(
-    collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_NAME, embedding_function=embeddings
+    collection_name=LANGCHAIN_COLLECTION_NAME, persist_directory=LANGCHAIN_DB_PATH, embedding_function=embeddings
 )
 if vectorstore._collection.count() == 0:
-    raise RuntimeError(f"Vector store at {LANGCHAIN_DB_NAME} is empty. Run `uv run ingest-langchain` first.")
+    raise RuntimeError(f"Vector store at {LANGCHAIN_DB_PATH} is empty. Run `uv run ingest-langchain` first.")
 retriever = vectorstore.as_retriever(search_kwargs={"k": FINAL_K})
 llm = ChatOpenAI(temperature=0, model=MODEL)
 
@@ -38,13 +38,13 @@ def fetch_context(question: str, history: list[dict] | None = None) -> list[Docu
     return retriever.invoke(question)
 
 
-def combined_question(question: str, history: list[dict] | None = None) -> str:
+def combine_user_messages(question: str, history: list[dict] | None = None) -> str:
     """
     Combine all the user's messages into a single string.
     """
     history = history or []
-    prior = "\n".join(message["content"] for message in history if message["role"] == "user")
-    return prior + "\n" + question
+    prior_user_messages = "\n".join(message["content"] for message in history if message["role"] == "user")
+    return prior_user_messages + "\n" + question
 
 
 def answer_question(question: str, history: list[dict] | None = None) -> tuple[str, list[Document]]:
@@ -52,12 +52,12 @@ def answer_question(question: str, history: list[dict] | None = None) -> tuple[s
     Answer the given question with RAG; return the answer and the context documents.
     """
     history = [{"role": message["role"], "content": message["content"]} for message in history or []]
-    combined = combined_question(question, history)
-    docs = fetch_context(combined)
-    context = "\n\n".join(doc.page_content for doc in docs)
-    system_prompt = SYSTEM_PROMPT.format(context=context)
+    combined_question = combine_user_messages(question, history)
+    documents = fetch_context(combined_question)
+    context = "\n\n".join(document.page_content for document in documents)
+    system_prompt = ANSWER_SYSTEM_PROMPT.format(context=context)
     messages = [SystemMessage(content=system_prompt)]
     messages.extend(convert_to_messages(history))
     messages.append(HumanMessage(content=question))
     response = llm.invoke(messages)
-    return response.content, docs
+    return response.content, documents

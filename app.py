@@ -14,7 +14,7 @@ def format_context(context_chunks):
     return formatted
 
 
-def to_text(content) -> str:
+def content_to_text(content) -> str:
     """
     Gradio 6 stores message content as a list of blocks, e.g. [{"type": "text", "text": "..."}].
     """
@@ -23,11 +23,11 @@ def to_text(content) -> str:
     return "\n".join(block["text"] for block in content if block.get("type") == "text")
 
 
-def chat(history, pipeline):
-    messages = [{"role": message["role"], "content": to_text(message["content"])} for message in history]
+def chat(history, pipeline_name):
+    messages = [{"role": message["role"], "content": content_to_text(message["content"])} for message in history]
     latest_question = messages[-1]["content"]
     prior_messages = messages[:-1]
-    answer, context_chunks = get_pipeline(pipeline).answer_question(latest_question, prior_messages)
+    answer, context_chunks = get_pipeline(pipeline_name).answer_question(latest_question, prior_messages)
     history.append({"role": "assistant", "content": answer})
     return history, format_context(context_chunks)
 
@@ -40,7 +40,7 @@ def main():
 
     with gr.Blocks(title="Insurellm Expert Assistant") as ui:
         gr.Markdown("# Insurellm Expert Assistant\nAsk me anything about Insurellm!")
-        pipeline = gr.Radio(
+        pipeline_selector = gr.Radio(
             choices=[(label, name) for name, label in LABELS.items()],
             value=DEFAULT_PIPELINE,
             label="RAG Pipeline",
@@ -51,7 +51,7 @@ def main():
                 chatbot = gr.Chatbot(
                     label="Conversation", height=600, buttons=["copy"]
                 )
-                message = gr.Textbox(
+                question_box = gr.Textbox(
                     label="Your Question",
                     placeholder="Ask anything about Insurellm...",
                     show_label=False,
@@ -65,9 +65,9 @@ def main():
                     height=600,
                 )
 
-        message.submit(
-            put_message_in_chatbot, inputs=[message, chatbot], outputs=[message, chatbot]
-        ).then(chat, inputs=[chatbot, pipeline], outputs=[chatbot, context_markdown])
+        question_box.submit(
+            put_message_in_chatbot, inputs=[question_box, chatbot], outputs=[question_box, chatbot]
+        ).then(chat, inputs=[chatbot, pipeline_selector], outputs=[chatbot, context_markdown])
 
     ui.launch(inbrowser=True, theme=theme)
 

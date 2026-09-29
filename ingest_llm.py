@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from tenacity import retry, wait_exponential
 from tqdm import tqdm
 
-from config import LLM_COLLECTION_NAME, LLM_DB_NAME, EMBEDDING_MODEL
+from config import LLM_COLLECTION_NAME, LLM_DB_PATH, EMBEDDING_MODEL
 
 
 load_dotenv(override=True)
@@ -17,14 +17,14 @@ MODEL = "openai/gpt-4.1-nano"
 KNOWLEDGE_BASE_PATH = Path(__file__).parent / "knowledge-base"
 AVERAGE_CHUNK_SIZE = 100
 EMBEDDING_BATCH_SIZE = 500
-# If you hit rate limits, set WORKERS to 1
-WORKERS = 3
+# If you hit rate limits, set MAX_WORKERS to 1
+MAX_WORKERS = 3
 
-wait = wait_exponential(multiplier=1, min=10, max=240)
-openai = OpenAI()
+retry_backoff = wait_exponential(multiplier=1, min=10, max=240)
+openai_client = OpenAI()
 
 
-class Result(BaseModel):
+class StoredChunk(BaseModel):
     page_content: str
     metadata: dict
 
@@ -40,9 +40,9 @@ class Chunk(BaseModel):
         description="The original text of this chunk from the provided document, exactly as is, not changed in any way"
     )
 
-    def as_result(self, document: dict) -> Result:
+    def as_stored_chunk(self, document: dict) -> StoredChunk:
         metadata = {"source": document["source"], "type": document["type"]}
-        return Result(
+        return StoredChunk(
             page_content=self.headline + "\n\n" + self.summary + "\n\n" + self.original_text,
             metadata=metadata,
         )
@@ -52,7 +52,7 @@ class Chunks(BaseModel):
     chunks: list[Chunk]
 
 
-def fetch_documents() -> list[dict]:
+def load_documents() -> list[dict]:
     documents = []
     for folder in KNOWLEDGE_BASE_PATH.iterdir():
         if not folder.is_dir():
@@ -65,8 +65,8 @@ def fetch_documents() -> list[dict]:
     return documents
 
 
-def make_prompt(document: dict) -> str:
-    how_many = (len(document["text"]) // AVERAGE_CHUNK_SIZE) + 1
+def make_chunking_prompt(document: dict) -> str:
+    min_chunk_count = (len(document["text"]) // AVERAGE_CHUNK_SIZE) + 1
     return f"""
 You take a document and you split the document into overlapping chunks for a KnowledgeBase.
 
@@ -76,7 +76,7 @@ The document has been retrieved from: {document["source"]}
 
 A chatbot will use these chunks to answer questions about the company.
 You should divide up the document as you see fit, being sure that the entire document is returned across the chunks - don't leave anything out.
-This document should probably be split into at least {how_many} chunks, but you can have more or less as appropriate, ensuring that there are individual chunks to answer specific questions.
+This document should probably be split into at least {min_chunk_count} chunks, but you can have more or less as appropriate, ensuring that there are individual chunks to answer specific questions.
 There should be overlap between the chunks as appropriate; typically about 25% overlap or about 50 words, so you have the same text in multiple chunks for best retrieval results.
 
 For each chunk, you should provide a headline, a summary, and the original text of the chunk.
@@ -90,22 +90,22 @@ Respond with the chunks.
 """
 
 
-@retry(wait=wait)
-def process_document(document: dict) -> list[Result]:
-    messages = [{"role": "user", "content": make_prompt(document)}]
+@retry(wait=retry_backoff)
+def chunk_document(document: dict) -> list[StoredChunk]:
+    messages = [{"role": "user", "content": make_chunking_prompt(document)}]
     response = completion(model=MODEL, messages=messages, response_format=Chunks)
-    doc_as_chunks = Chunks.model_validate_json(response.choices[0].message.content).chunks
-    return [chunk.as_result(document) for chunk in doc_as_chunks]
+    chunks = Chunks.model_validate_json(response.choices[0].message.content).chunks
+    return [chunk.as_stored_chunk(document) for chunk in chunks]
 
 
-def create_chunks(documents: list[dict]) -> list[Result]:
+def create_chunks(documents: list[dict]) -> list[StoredChunk]:
     """
     Have the LLM split each document into chunks, running several documents in parallel.
     """
     chunks = []
-    with ThreadPoolExecutor(max_workers=WORKERS) as executor:
-        for result in tqdm(executor.map(process_document, documents), total=len(documents)):
-            chunks.extend(result)
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        for document_chunks in tqdm(executor.map(chunk_document, documents), total=len(documents)):
+            chunks.extend(document_chunks)
     return chunks
 
 
@@ -113,14 +113,14 @@ def embed(texts: list[str]) -> list[list[float]]:
     vectors = []
     for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
         batch = texts[start : start + EMBEDDING_BATCH_SIZE]
-        response = openai.embeddings.create(model=EMBEDDING_MODEL, input=batch)
+        response = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=batch)
         vectors.extend(item.embedding for item in response.data)
     return vectors
 
 
-def create_embeddings(chunks: list[Result]) -> None:
-    chroma = PersistentClient(path=LLM_DB_NAME)
-    if LLM_COLLECTION_NAME in [c.name for c in chroma.list_collections()]:
+def build_vector_store(chunks: list[StoredChunk]) -> None:
+    chroma = PersistentClient(path=LLM_DB_PATH)
+    if LLM_COLLECTION_NAME in [collection.name for collection in chroma.list_collections()]:
         chroma.delete_collection(LLM_COLLECTION_NAME)
 
     texts = [chunk.page_content for chunk in chunks]
@@ -134,9 +134,9 @@ def create_embeddings(chunks: list[Result]) -> None:
 
 
 def main():
-    documents = fetch_documents()
+    documents = load_documents()
     chunks = create_chunks(documents)
-    create_embeddings(chunks)
+    build_vector_store(chunks)
     print("Ingestion complete")
 
 

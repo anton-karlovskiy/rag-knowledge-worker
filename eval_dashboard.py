@@ -4,7 +4,7 @@ from collections import defaultdict
 from enum import Enum
 from dotenv import load_dotenv
 
-from evaluation.eval import evaluate_retrieval_all, evaluate_answer_all
+from evaluation.evaluate import evaluate_retrieval_all, evaluate_answer_all
 from pipelines import DEFAULT_PIPELINE, LABELS
 
 load_dotenv(override=True)
@@ -37,7 +37,7 @@ PLACEHOLDER_HTML = (
 )
 
 
-def get_color(value: float, metric_type: MetricType) -> str:
+def metric_color(value: float, metric_type: MetricType) -> str:
     green, amber = THRESHOLDS[metric_type]
     if value >= green:
         return "green"
@@ -51,12 +51,12 @@ def format_metric_html(
     value: float,
     metric_type: MetricType,
     is_percentage: bool = False,
-    score_format: bool = False,
+    is_score: bool = False,
 ) -> str:
-    color = get_color(value, metric_type)
+    color = metric_color(value, metric_type)
     if is_percentage:
         value_str = f"{value:.1f}%"
-    elif score_format:
+    elif is_score:
         value_str = f"{value:.2f}/5"
     else:
         value_str = f"{value:.4f}"
@@ -76,14 +76,14 @@ def format_complete_html(count: int) -> str:
     """
 
 
-def run_retrieval_evaluation(pipeline, progress=gr.Progress()):
+def run_retrieval_evaluation(pipeline_name, progress=gr.Progress()):
     total_mrr = 0.0
     total_mean_ndcg = 0.0
     total_keyword_coverage_percent = 0.0
     category_mrr = defaultdict(list)
     count = 0
 
-    for test_case, retrieval_eval, progress_value in evaluate_retrieval_all(pipeline):
+    for test_case, retrieval_eval, progress_value in evaluate_retrieval_all(pipeline_name):
         count += 1
         total_mrr += retrieval_eval.mrr
         total_mean_ndcg += retrieval_eval.mean_ndcg
@@ -91,7 +91,7 @@ def run_retrieval_evaluation(pipeline, progress=gr.Progress()):
         category_mrr[test_case.category].append(retrieval_eval.mrr)
         progress(progress_value, desc=f"Evaluating test case {count}...")
 
-    final_html = f"""
+    metrics_html = f"""
     <div style="padding: 0;">
         {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / count, MetricType.MRR)}
         {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / count, MetricType.NDCG)}
@@ -106,17 +106,17 @@ def run_retrieval_evaluation(pipeline, progress=gr.Progress()):
             for category, scores in category_mrr.items()
         ]
     )
-    return final_html, category_df
+    return metrics_html, category_df
 
 
-def run_answer_evaluation(pipeline, progress=gr.Progress()):
+def run_answer_evaluation(pipeline_name, progress=gr.Progress()):
     total_accuracy = 0.0
     total_completeness = 0.0
     total_relevance = 0.0
     category_accuracy = defaultdict(list)
     count = 0
 
-    for test_case, answer_eval, progress_value in evaluate_answer_all(pipeline):
+    for test_case, answer_eval, progress_value in evaluate_answer_all(pipeline_name):
         count += 1
         total_accuracy += answer_eval.accuracy
         total_completeness += answer_eval.completeness
@@ -124,11 +124,11 @@ def run_answer_evaluation(pipeline, progress=gr.Progress()):
         category_accuracy[test_case.category].append(answer_eval.accuracy)
         progress(progress_value, desc=f"Evaluating test case {count}...")
 
-    final_html = f"""
+    metrics_html = f"""
     <div style="padding: 0;">
-        {format_metric_html("Accuracy", total_accuracy / count, MetricType.ACCURACY, score_format=True)}
-        {format_metric_html("Completeness", total_completeness / count, MetricType.COMPLETENESS, score_format=True)}
-        {format_metric_html("Relevance", total_relevance / count, MetricType.RELEVANCE, score_format=True)}
+        {format_metric_html("Accuracy", total_accuracy / count, MetricType.ACCURACY, is_score=True)}
+        {format_metric_html("Completeness", total_completeness / count, MetricType.COMPLETENESS, is_score=True)}
+        {format_metric_html("Relevance", total_relevance / count, MetricType.RELEVANCE, is_score=True)}
         {format_complete_html(count)}
     </div>
     """
@@ -139,7 +139,7 @@ def run_answer_evaluation(pipeline, progress=gr.Progress()):
             for category, scores in category_accuracy.items()
         ]
     )
-    return final_html, category_df
+    return metrics_html, category_df
 
 
 def main():
@@ -148,7 +148,7 @@ def main():
     with gr.Blocks(title="RAG Evaluation Dashboard") as ui:
         gr.Markdown("# RAG Evaluation Dashboard")
         gr.Markdown("Evaluate retrieval and answer quality for the Insurellm RAG system")
-        pipeline = gr.Radio(
+        pipeline_selector = gr.Radio(
             choices=[(label, name) for name, label in LABELS.items()],
             value=DEFAULT_PIPELINE,
             label="RAG Pipeline",
@@ -183,9 +183,9 @@ def main():
                 )
 
         retrieval_button.click(
-            fn=run_retrieval_evaluation, inputs=pipeline, outputs=[retrieval_metrics, retrieval_chart]
+            fn=run_retrieval_evaluation, inputs=pipeline_selector, outputs=[retrieval_metrics, retrieval_chart]
         )
-        answer_button.click(fn=run_answer_evaluation, inputs=pipeline, outputs=[answer_metrics, answer_chart])
+        answer_button.click(fn=run_answer_evaluation, inputs=pipeline_selector, outputs=[answer_metrics, answer_chart])
 
     ui.launch(inbrowser=True, theme=theme)
 

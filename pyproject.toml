@@ -26,8 +26,8 @@ dependencies = [
 ingest-llm = "ingest_llm:main"
 ingest-langchain = "ingest_langchain:main"
 app = "app:main"
-eval = "evaluation.eval:main"
-evaluator = "evaluator:main"
+eval = "evaluation.evaluate:main"
+evaluator = "eval_dashboard:main"
 visualize = "visualize:main"
 
 [build-system]

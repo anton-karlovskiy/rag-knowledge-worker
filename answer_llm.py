@@ -5,14 +5,14 @@ from openai import APIConnectionError, InternalServerError, OpenAI, RateLimitErr
 from pydantic import BaseModel, Field
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from config import LLM_COLLECTION_NAME, LLM_DB_NAME, EMBEDDING_MODEL, FINAL_K, LLM_RETRIEVAL_K
+from config import LLM_COLLECTION_NAME, LLM_DB_PATH, EMBEDDING_MODEL, FINAL_K, LLM_RETRIEVAL_K
 
 
 load_dotenv(override=True)
 
 MODEL = "openai/gpt-4.1-nano"
 
-SYSTEM_PROMPT = """
+ANSWER_SYSTEM_PROMPT = """
 You are a knowledgeable, friendly assistant representing the company Insurellm.
 You are chatting with a user about Insurellm.
 Your answer will be evaluated for accuracy, relevance and completeness, so make sure it only answers the question and fully answers it.
@@ -31,7 +31,7 @@ You must rank order the provided chunks by relevance to the question, with the m
 Reply only with the list of ranked chunk ids, nothing else. Include all the chunk ids you are provided with, reranked.
 """
 
-REWRITE_PROMPT = """
+REWRITE_QUERY_PROMPT = """
 You are in a conversation with a user.
 You are about to look up information in a Knowledge Base to answer the user's question.
 
@@ -63,15 +63,15 @@ llm_retry = retry(
     stop=stop_after_attempt(5),
     reraise=True,
 )
-openai = OpenAI()
+openai_client = OpenAI()
 
-chroma = PersistentClient(path=LLM_DB_NAME)
+chroma = PersistentClient(path=LLM_DB_PATH)
 collection = chroma.get_or_create_collection(LLM_COLLECTION_NAME)
 if collection.count() == 0:
-    raise RuntimeError(f"Vector store at {LLM_DB_NAME} is empty. Run `uv run ingest-llm` first.")
+    raise RuntimeError(f"Vector store at {LLM_DB_PATH} is empty. Run `uv run ingest-llm` first.")
 
 
-class Result(BaseModel):
+class RetrievedChunk(BaseModel):
     page_content: str
     metadata: dict
 
@@ -83,7 +83,7 @@ class RankOrder(BaseModel):
 
 
 @llm_retry
-def rerank(question: str, chunks: list[Result]) -> list[Result]:
+def rerank(question: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
     """
     Have the LLM reorder the chunks by relevance to the question.
     """
@@ -106,12 +106,12 @@ def rewrite_query(question: str, history: list[dict] | None = None) -> str:
     """
     Rewrite the question into a short, specific query more likely to surface relevant chunks.
     """
-    message = REWRITE_PROMPT.format(history=history or [], question=question)
+    message = REWRITE_QUERY_PROMPT.format(history=history or [], question=question)
     response = completion(model=MODEL, messages=[{"role": "system", "content": message}])
     return response.choices[0].message.content
 
 
-def merge_chunks(chunks: list[Result], extra: list[Result]) -> list[Result]:
+def merge_chunks(chunks: list[RetrievedChunk], extra: list[RetrievedChunk]) -> list[RetrievedChunk]:
     """
     Append the chunks from extra that are not already in chunks.
     """
@@ -123,34 +123,34 @@ def merge_chunks(chunks: list[Result], extra: list[Result]) -> list[Result]:
     return merged
 
 
-def fetch_context_unranked(question: str) -> list[Result]:
-    query = openai.embeddings.create(model=EMBEDDING_MODEL, input=[question]).data[0].embedding
-    results = collection.query(query_embeddings=[query], n_results=LLM_RETRIEVAL_K)
+def retrieve_candidates(question: str) -> list[RetrievedChunk]:
+    query_embedding = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=[question]).data[0].embedding
+    results = collection.query(query_embeddings=[query_embedding], n_results=LLM_RETRIEVAL_K)
     return [
-        Result(page_content=document, metadata=metadata)
+        RetrievedChunk(page_content=document, metadata=metadata)
         for document, metadata in zip(results["documents"][0], results["metadatas"][0])
     ]
 
 
-def fetch_context(question: str, history: list[dict] | None = None) -> list[Result]:
+def fetch_context(question: str, history: list[dict] | None = None) -> list[RetrievedChunk]:
     """
     Retrieve chunks for the original and rewritten question, rerank them, and keep the top FINAL_K.
     """
-    rewritten_question = rewrite_query(question, history)
-    chunks = merge_chunks(fetch_context_unranked(question), fetch_context_unranked(rewritten_question))
+    rewritten_query = rewrite_query(question, history)
+    chunks = merge_chunks(retrieve_candidates(question), retrieve_candidates(rewritten_query))
     return rerank(question, chunks)[:FINAL_K]
 
 
-def make_rag_messages(question: str, history: list[dict], chunks: list[Result]) -> list[dict]:
+def make_rag_messages(question: str, history: list[dict], chunks: list[RetrievedChunk]) -> list[dict]:
     context = "\n\n".join(
         f"Extract from {chunk.metadata['source']}:\n{chunk.page_content}" for chunk in chunks
     )
-    system_prompt = SYSTEM_PROMPT.format(context=context)
+    system_prompt = ANSWER_SYSTEM_PROMPT.format(context=context)
     return [{"role": "system", "content": system_prompt}] + history + [{"role": "user", "content": question}]
 
 
 @llm_retry
-def answer_question(question: str, history: list[dict] | None = None) -> tuple[str, list[Result]]:
+def answer_question(question: str, history: list[dict] | None = None) -> tuple[str, list[RetrievedChunk]]:
     """
     Answer the given question with RAG; return the answer and the context chunks.
     """

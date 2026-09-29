@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field
 from litellm import completion
 from dotenv import load_dotenv
 
-from evaluation.test import TestCase, load_test_cases
+from evaluation.test_cases import TestCase, load_test_cases
 from pipelines import DEFAULT_PIPELINE, PIPELINES, get_pipeline
 from config import FINAL_K
 
 
 load_dotenv(override=True)
 
-MODEL = "openai/gpt-4.1-nano"
+JUDGE_MODEL = "openai/gpt-4.1-nano"
 
 
 class RetrievalEval(BaseModel):
@@ -67,8 +67,8 @@ def calculate_ndcg(keyword: str, retrieved_docs: list, k: int) -> float:
     return dcg / idcg if idcg > 0 else 0.0
 
 
-def evaluate_retrieval(test_case: TestCase, pipeline: str = DEFAULT_PIPELINE) -> RetrievalEval:
-    retrieved_docs = get_pipeline(pipeline).fetch_context(test_case.question)
+def evaluate_retrieval(test_case: TestCase, pipeline_name: str = DEFAULT_PIPELINE) -> RetrievalEval:
+    retrieved_docs = get_pipeline(pipeline_name).fetch_context(test_case.question)
     reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test_case.keywords]
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
     ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, FINAL_K) for keyword in test_case.keywords]
@@ -85,8 +85,8 @@ def evaluate_retrieval(test_case: TestCase, pipeline: str = DEFAULT_PIPELINE) ->
     )
 
 
-def evaluate_answer(test_case: TestCase, pipeline: str = DEFAULT_PIPELINE) -> tuple[AnswerEval, str, list]:
-    generated_answer, retrieved_docs = get_pipeline(pipeline).answer_question(test_case.question)
+def evaluate_answer(test_case: TestCase, pipeline_name: str = DEFAULT_PIPELINE) -> tuple[AnswerEval, str, list]:
+    generated_answer, retrieved_docs = get_pipeline(pipeline_name).answer_question(test_case.question)
     judge_messages = [
         {
             "role": "system",
@@ -111,26 +111,26 @@ Please evaluate the generated answer on three dimensions:
 Provide detailed feedback and scores from 1 (very poor) to 5 (ideal) for each dimension. If the answer is wrong, then the accuracy score must be 1.""",
         },
     ]
-    judge_response = completion(model=MODEL, messages=judge_messages, response_format=AnswerEval)
+    judge_response = completion(model=JUDGE_MODEL, messages=judge_messages, response_format=AnswerEval)
     answer_eval = AnswerEval.model_validate_json(judge_response.choices[0].message.content)
     return answer_eval, generated_answer, retrieved_docs
 
 
-def evaluate_retrieval_all(pipeline: str = DEFAULT_PIPELINE):
+def evaluate_retrieval_all(pipeline_name: str = DEFAULT_PIPELINE):
     test_cases = load_test_cases()
     for index, test_case in enumerate(test_cases):
-        retrieval_eval = evaluate_retrieval(test_case, pipeline)
+        retrieval_eval = evaluate_retrieval(test_case, pipeline_name)
         yield test_case, retrieval_eval, (index + 1) / len(test_cases)
 
 
-def evaluate_answer_all(pipeline: str = DEFAULT_PIPELINE):
+def evaluate_answer_all(pipeline_name: str = DEFAULT_PIPELINE):
     test_cases = load_test_cases()
     for index, test_case in enumerate(test_cases):
-        answer_eval = evaluate_answer(test_case, pipeline)[0]
+        answer_eval = evaluate_answer(test_case, pipeline_name)[0]
         yield test_case, answer_eval, (index + 1) / len(test_cases)
 
 
-def run_cli_evaluation(test_case_index: int, pipeline: str = DEFAULT_PIPELINE):
+def run_cli_evaluation(test_case_index: int, pipeline_name: str = DEFAULT_PIPELINE):
     test_cases = load_test_cases()
 
     if test_case_index < 0 or test_case_index >= len(test_cases):
@@ -140,7 +140,7 @@ def run_cli_evaluation(test_case_index: int, pipeline: str = DEFAULT_PIPELINE):
     test_case = test_cases[test_case_index]
 
     print(f"\n{'=' * 80}")
-    print(f"Test Case #{test_case_index} ({pipeline} pipeline)")
+    print(f"Test Case #{test_case_index} ({pipeline_name} pipeline)")
     print(f"{'=' * 80}")
     print(f"Question: {test_case.question}")
     print(f"Keywords: {test_case.keywords}")
@@ -150,7 +150,7 @@ def run_cli_evaluation(test_case_index: int, pipeline: str = DEFAULT_PIPELINE):
     print(f"\n{'=' * 80}")
     print("Retrieval Evaluation")
     print(f"{'=' * 80}")
-    retrieval_eval = evaluate_retrieval(test_case, pipeline)
+    retrieval_eval = evaluate_retrieval(test_case, pipeline_name)
     print(f"MRR: {retrieval_eval.mrr:.4f}")
     print(f"Mean nDCG: {retrieval_eval.mean_ndcg:.4f}")
     print(f"Keywords Found: {retrieval_eval.found_keywords}/{retrieval_eval.total_keywords}")
@@ -159,7 +159,7 @@ def run_cli_evaluation(test_case_index: int, pipeline: str = DEFAULT_PIPELINE):
     print(f"\n{'=' * 80}")
     print("Answer Evaluation")
     print(f"{'=' * 80}")
-    answer_eval, generated_answer, _ = evaluate_answer(test_case, pipeline)
+    answer_eval, generated_answer, _ = evaluate_answer(test_case, pipeline_name)
     print(f"\nGenerated Answer:\n{generated_answer}")
     print(f"\nFeedback:\n{answer_eval.feedback}")
     print("\nScores:")
