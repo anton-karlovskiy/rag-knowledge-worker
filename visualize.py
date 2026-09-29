@@ -25,7 +25,7 @@ def load_store(pipeline_name: str):
     return np.array(result["embeddings"]), result["documents"], types
 
 
-def plot_tsne(vectors, documents, types, dimensions):
+def plot_tsne(vectors, chunk_texts, types, dimensions):
     reduced_vectors = TSNE(n_components=dimensions, random_state=42).fit_transform(vectors)
     fig = go.Figure()
     for doc_type in sorted(set(types)):
@@ -40,7 +40,7 @@ def plot_tsne(vectors, documents, types, dimensions):
             mode="markers",
             name=doc_type,
             marker=dict(size=5, color=TYPE_COLORS.get(doc_type, "gray"), opacity=0.8),
-            text=[f"Type: {doc_type}<br>Text: {documents[i][:100]}..." for i in indices],
+            text=[f"Type: {doc_type}<br>Text: {chunk_texts[i][:100]}..." for i in indices],
             hoverinfo="text",
         ))
     fig.update_layout(
@@ -57,9 +57,9 @@ def main():
     parser.add_argument("--dimensions", type=int, choices=[2, 3], default=2)
     parser.add_argument("--pipeline", choices=list(PIPELINES), default=DEFAULT_PIPELINE)
     args = parser.parse_args()
-    vectors, documents, types = load_store(args.pipeline)
+    vectors, chunk_texts, types = load_store(args.pipeline)
     print(f"Running t-SNE on {len(vectors)} chunks...")
-    plot_tsne(vectors, documents, types, args.dimensions).show()
+    plot_tsne(vectors, chunk_texts, types, args.dimensions).show()
 
 
 if __name__ == "__main__":

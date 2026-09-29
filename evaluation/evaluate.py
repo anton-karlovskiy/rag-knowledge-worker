@@ -40,11 +40,11 @@ class AnswerEval(BaseModel):
     )
 
 
-# RR = Reciprocal Rank: 1/rank of the first retrieved doc containing the keyword
-def calculate_rr(keyword: str, retrieved_docs: list) -> float:
+# RR = Reciprocal Rank: 1/rank of the first retrieved chunk containing the keyword
+def calculate_rr(keyword: str, retrieved_chunks: list) -> float:
     keyword_lower = keyword.lower()
-    for rank, doc in enumerate(retrieved_docs, start=1):
-        if keyword_lower in doc.page_content.lower():
+    for rank, chunk in enumerate(retrieved_chunks, start=1):
+        if keyword_lower in chunk.page_content.lower():
             return 1.0 / rank
     return 0.0
 
@@ -56,10 +56,10 @@ def calculate_dcg(relevances: list[int], k: int) -> float:
     return dcg
 
 
-def calculate_ndcg(keyword: str, retrieved_docs: list, k: int) -> float:
+def calculate_ndcg(keyword: str, retrieved_chunks: list, k: int) -> float:
     keyword_lower = keyword.lower()
     relevances = [
-        1 if keyword_lower in doc.page_content.lower() else 0 for doc in retrieved_docs[:k]
+        1 if keyword_lower in chunk.page_content.lower() else 0 for chunk in retrieved_chunks[:k]
     ]
     dcg = calculate_dcg(relevances, k)
     ideal_relevances = sorted(relevances, reverse=True)
@@ -68,10 +68,10 @@ def calculate_ndcg(keyword: str, retrieved_docs: list, k: int) -> float:
 
 
 def evaluate_retrieval(test_case: TestCase, pipeline_name: str = DEFAULT_PIPELINE) -> RetrievalEval:
-    retrieved_docs = get_pipeline(pipeline_name).fetch_context(test_case.question)
-    reciprocal_ranks = [calculate_rr(keyword, retrieved_docs) for keyword in test_case.keywords]
+    retrieved_chunks = get_pipeline(pipeline_name).fetch_context(test_case.question)
+    reciprocal_ranks = [calculate_rr(keyword, retrieved_chunks) for keyword in test_case.keywords]
     mrr = sum(reciprocal_ranks) / len(reciprocal_ranks) if reciprocal_ranks else 0.0
-    ndcg_scores = [calculate_ndcg(keyword, retrieved_docs, FINAL_K) for keyword in test_case.keywords]
+    ndcg_scores = [calculate_ndcg(keyword, retrieved_chunks, FINAL_K) for keyword in test_case.keywords]
     mean_ndcg = sum(ndcg_scores) / len(ndcg_scores) if ndcg_scores else 0.0
     found_keywords = sum(1 for reciprocal_rank in reciprocal_ranks if reciprocal_rank > 0)
     total_keywords = len(test_case.keywords)
@@ -86,7 +86,7 @@ def evaluate_retrieval(test_case: TestCase, pipeline_name: str = DEFAULT_PIPELIN
 
 
 def evaluate_answer(test_case: TestCase, pipeline_name: str = DEFAULT_PIPELINE) -> tuple[AnswerEval, str, list]:
-    generated_answer, retrieved_docs = get_pipeline(pipeline_name).answer_question(test_case.question)
+    generated_answer, retrieved_chunks = get_pipeline(pipeline_name).answer_question(test_case.question)
     judge_messages = [
         {
             "role": "system",
@@ -113,7 +113,7 @@ Provide detailed feedback and scores from 1 (very poor) to 5 (ideal) for each di
     ]
     judge_response = completion(model=JUDGE_MODEL, messages=judge_messages, response_format=AnswerEval)
     answer_eval = AnswerEval.model_validate_json(judge_response.choices[0].message.content)
-    return answer_eval, generated_answer, retrieved_docs
+    return answer_eval, generated_answer, retrieved_chunks
 
 
 def evaluate_retrieval_all(pipeline_name: str = DEFAULT_PIPELINE):

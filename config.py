@@ -7,7 +7,7 @@ FINAL_K = 10
 
 # LLM pipeline
 LLM_DB_PATH = str(Path(__file__).parent / "llm_db")
-LLM_COLLECTION_NAME = "docs"
+LLM_COLLECTION_NAME = "llm"
 LLM_RETRIEVAL_K = 20
 
 # LangChain pipeline keeps its own store so both pipelines can be served side by side

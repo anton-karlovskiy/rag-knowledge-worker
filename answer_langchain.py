@@ -32,7 +32,7 @@ llm = ChatOpenAI(temperature=0, model=MODEL)
 
 def fetch_context(question: str, history: list[dict] | None = None) -> list[Document]:
     """
-    Retrieve relevant context documents for a question.
+    Retrieve relevant context chunks for a question.
     history is accepted only to match the LLM pipeline's interface; answer_question folds it into the question.
     """
     return retriever.invoke(question)
@@ -49,15 +49,15 @@ def combine_user_messages(question: str, history: list[dict] | None = None) -> s
 
 def answer_question(question: str, history: list[dict] | None = None) -> tuple[str, list[Document]]:
     """
-    Answer the given question with RAG; return the answer and the context documents.
+    Answer the given question with RAG; return the answer and the context chunks.
     """
     history = [{"role": message["role"], "content": message["content"]} for message in history or []]
     combined_question = combine_user_messages(question, history)
-    documents = fetch_context(combined_question)
-    context = "\n\n".join(document.page_content for document in documents)
+    chunks = fetch_context(combined_question)
+    context = "\n\n".join(chunk.page_content for chunk in chunks)
     system_prompt = ANSWER_SYSTEM_PROMPT.format(context=context)
     messages = [SystemMessage(content=system_prompt)]
     messages.extend(convert_to_messages(history))
     messages.append(HumanMessage(content=question))
     response = llm.invoke(messages)
-    return response.content, documents
+    return response.content, chunks
