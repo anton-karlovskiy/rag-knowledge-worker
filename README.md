@@ -45,9 +45,10 @@ Opens a Gradio chat interface in your browser. Ask anything about the company. T
 **Optional: Visualize the vector store**
 
 ```bash
-uv run visualize                        # 2D t-SNE of the LLM store
-uv run visualize --dimensions 3         # 3D t-SNE
-uv run visualize --pipeline langchain   # LangChain store
+uv run visualize --pipeline llm                        # 2D t-SNE of the LLM store
+uv run visualize --pipeline langchain                  # 2D t-SNE of the LangChain store
+uv run visualize --pipeline llm --dimensions 3         # 3D t-SNE of the LLM store
+uv run visualize --pipeline langchain --dimensions 3   # 3D t-SNE of the LangChain store
 ```
 
 Projects every chunk embedding with t-SNE and opens an interactive Plotly scatter in your browser, colored by document type. Hover a point to see its text. No LLM calls.
@@ -61,7 +62,7 @@ Evaluation needs the vector store from Step 1 for the selected pipeline (`llm_db
 To evaluate a single test case by index:
 
 ```bash
-uv run eval 0                         # LLM pipeline
+uv run eval 0 --pipeline llm          # LLM pipeline
 uv run eval 0 --pipeline langchain    # LangChain pipeline
 ```
 

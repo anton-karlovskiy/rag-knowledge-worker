@@ -16,9 +16,9 @@ uv sync               # install dependencies
 uv run ingest-llm         # build llm_db/ from knowledge-base/ (one LLM call per document, takes minutes)
 uv run ingest-langchain   # build langchain_db/ for the LangChain pipeline (no LLM calls)
 uv run app            # Gradio chat UI
-uv run eval <index>   # evaluate one test case (retrieval + LLM-judged answer), e.g. `uv run eval 0 --pipeline langchain`
+uv run eval <index> --pipeline llm|langchain   # evaluate one test case (retrieval + LLM-judged answer), e.g. `uv run eval 0 --pipeline llm`
 uv run evaluator      # Gradio dashboard that evaluates all 150 test cases
-uv run visualize      # t-SNE plot of a vector store (--dimensions 3, --pipeline langchain), no LLM calls
+uv run visualize --pipeline llm|langchain      # t-SNE plot of that pipeline's vector store (add --dimensions 3 for 3D), no LLM calls
 ```
 
 The entry points are defined in `[project.scripts]` in `pyproject.toml`. There is no unit test suite, linter, or formatter configured. "Tests" here means the RAG evaluation in `evaluation/`, and every run makes several LLM calls per question.
