@@ -77,11 +77,17 @@ Opens a Gradio dashboard with a pipeline switch and two sections, Retrieval and 
 
 ### Results
 
-A full run over all 150 test cases with the default configuration:
+Full runs over all 150 test cases with the default configuration.
 
-![RAG evaluation dashboard](docs/evaluator-dashboard.png)
+**LLM pipeline:**
 
-Compared with the LangChain pipeline (500-character chunks, no query rewriting or reranking):
+![RAG evaluation dashboard, LLM pipeline](docs/evaluator-dashboard-llm.png)
+
+**LangChain pipeline:**
+
+![RAG evaluation dashboard, LangChain pipeline](docs/evaluator-dashboard-langchain.png)
+
+The LLM pipeline compared with the LangChain pipeline (500-character chunks, no query rewriting or reranking):
 
 | Metric | LangChain | LLM |
 |---|---|---|
