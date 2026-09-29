@@ -3,19 +3,20 @@ from pathlib import PurePath
 import gradio as gr
 from dotenv import load_dotenv
 
-from pipelines import DEFAULT_PIPELINE, PIPELINE_LABELS, get_pipeline
+from config import KNOWLEDGE_BASE_DIR_NAME
+from pipelines import DEFAULT_PIPELINE, PIPELINE_CHOICES, get_pipeline
 
 load_dotenv(override=True)
 
 
 def display_source(source: str) -> str:
     """
-    Show the source path relative to knowledge-base/, hiding the local directory it was ingested from.
+    Show the source path relative to the knowledge base folder, hiding the local directory it was ingested from.
     """
     parts = PurePath(source).parts
-    if "knowledge-base" not in parts:
+    if KNOWLEDGE_BASE_DIR_NAME not in parts:
         return source
-    return "/".join(parts[parts.index("knowledge-base") + 1:])
+    return "/".join(parts[parts.index(KNOWLEDGE_BASE_DIR_NAME) + 1:])
 
 
 def format_context(context_chunks):
@@ -53,7 +54,7 @@ def main():
     with gr.Blocks(title="Insurellm Expert Assistant") as ui:
         gr.Markdown("# Insurellm Expert Assistant\nAsk me anything about Insurellm!")
         pipeline_selector = gr.Radio(
-            choices=[(label, name) for name, label in PIPELINE_LABELS.items()],
+            choices=PIPELINE_CHOICES,
             value=DEFAULT_PIPELINE,
             label="RAG Pipeline",
         )

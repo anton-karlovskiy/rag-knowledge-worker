@@ -12,6 +12,8 @@ PIPELINE_LABELS = {
     "llm": "LLM (chunking + rerank)",
 }
 DEFAULT_PIPELINE = "llm"
+# (label, value) pairs for the UI pipeline selector
+PIPELINE_CHOICES = [(label, name) for name, label in PIPELINE_LABELS.items()]
 
 
 def get_pipeline(pipeline_name: str = DEFAULT_PIPELINE) -> ModuleType:

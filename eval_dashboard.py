@@ -5,7 +5,7 @@ from enum import Enum
 from dotenv import load_dotenv
 
 from evaluation.evaluate import evaluate_retrieval_all, evaluate_answer_all
-from pipelines import DEFAULT_PIPELINE, PIPELINE_LABELS
+from pipelines import DEFAULT_PIPELINE, PIPELINE_CHOICES
 
 load_dotenv(override=True)
 
@@ -149,7 +149,7 @@ def main():
         gr.Markdown("# RAG Evaluation Dashboard")
         gr.Markdown("Evaluate retrieval and answer quality for the Insurellm RAG system")
         pipeline_selector = gr.Radio(
-            choices=[(label, name) for name, label in PIPELINE_LABELS.items()],
+            choices=PIPELINE_CHOICES,
             value=DEFAULT_PIPELINE,
             label="RAG Pipeline",
         )

@@ -1,16 +1,20 @@
-from pathlib import Path
 from dotenv import load_dotenv
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
-from config import LANGCHAIN_COLLECTION_NAME, LANGCHAIN_DB_PATH, EMBEDDING_MODEL
+from config import (
+    DOCUMENT_GLOB,
+    EMBEDDING_MODEL,
+    KNOWLEDGE_BASE_PATH,
+    LANGCHAIN_COLLECTION_NAME,
+    LANGCHAIN_DB_PATH,
+)
 
 
 load_dotenv(override=True)
 
-KNOWLEDGE_BASE_PATH = Path(__file__).parent / "knowledge-base"
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 200
 
@@ -23,7 +27,7 @@ def load_documents():
         if not folder.is_dir():
             continue
         loader = DirectoryLoader(
-            str(folder), glob="**/*.md", loader_cls=TextLoader, loader_kwargs={"encoding": "utf-8"}
+            str(folder), glob=DOCUMENT_GLOB, loader_cls=TextLoader, loader_kwargs={"encoding": "utf-8"}
         )
         for document in loader.load():
             document.metadata["type"] = folder.name

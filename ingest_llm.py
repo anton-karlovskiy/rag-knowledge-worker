@@ -1,5 +1,4 @@
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 from chromadb import PersistentClient
 from dotenv import load_dotenv
 from litellm import completion
@@ -8,13 +7,12 @@ from pydantic import BaseModel, Field
 from tenacity import retry, wait_exponential
 from tqdm import tqdm
 
-from config import LLM_COLLECTION_NAME, LLM_DB_PATH, EMBEDDING_MODEL
+from config import DOCUMENT_GLOB, EMBEDDING_MODEL, KNOWLEDGE_BASE_PATH, LLM_COLLECTION_NAME, LLM_DB_PATH
 
 
 load_dotenv(override=True)
 
 MODEL = "openai/gpt-4.1-nano"
-KNOWLEDGE_BASE_PATH = Path(__file__).parent / "knowledge-base"
 AVERAGE_CHUNK_SIZE = 100
 EMBEDDING_BATCH_SIZE = 500
 # If you hit rate limits, set MAX_WORKERS to 1
@@ -57,7 +55,7 @@ def load_documents() -> list[dict]:
     for folder in KNOWLEDGE_BASE_PATH.iterdir():
         if not folder.is_dir():
             continue
-        for file in folder.rglob("*.md"):
+        for file in folder.glob(DOCUMENT_GLOB):
             documents.append(
                 {"type": folder.name, "source": file.as_posix(), "text": file.read_text(encoding="utf-8")}
             )
