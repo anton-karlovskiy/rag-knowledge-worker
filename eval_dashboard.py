@@ -5,7 +5,7 @@ from enum import Enum
 from dotenv import load_dotenv
 
 from evaluation.evaluate import evaluate_retrieval_all, evaluate_answer_all
-from pipelines import DEFAULT_PIPELINE, LABELS
+from pipelines import DEFAULT_PIPELINE, PIPELINE_LABELS
 
 load_dotenv(override=True)
 
@@ -68,10 +68,10 @@ def format_metric_html(
     """
 
 
-def format_complete_html(count: int) -> str:
+def format_completion_html(test_case_count: int) -> str:
     return f"""
     <div style="margin-top: 20px; padding: 10px; background-color: #d4edda; border-radius: 5px; text-align: center; border: 1px solid #c3e6cb;">
-        <span style="font-size: 14px; color: #155724; font-weight: bold;">✓ Evaluation Complete: {count} test cases</span>
+        <span style="font-size: 14px; color: #155724; font-weight: bold;">✓ Evaluation Complete: {test_case_count} test cases</span>
     </div>
     """
 
@@ -81,22 +81,22 @@ def run_retrieval_evaluation(pipeline_name, progress=gr.Progress()):
     total_mean_ndcg = 0.0
     total_keyword_coverage_percent = 0.0
     category_mrr = defaultdict(list)
-    count = 0
+    test_case_count = 0
 
     for test_case, retrieval_eval, progress_value in evaluate_retrieval_all(pipeline_name):
-        count += 1
+        test_case_count += 1
         total_mrr += retrieval_eval.mrr
         total_mean_ndcg += retrieval_eval.mean_ndcg
         total_keyword_coverage_percent += retrieval_eval.keyword_coverage_percent
         category_mrr[test_case.category].append(retrieval_eval.mrr)
-        progress(progress_value, desc=f"Evaluating test case {count}...")
+        progress(progress_value, desc=f"Evaluating test case {test_case_count}...")
 
     metrics_html = f"""
     <div style="padding: 0;">
-        {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / count, MetricType.MRR)}
-        {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / count, MetricType.NDCG)}
-        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / count, MetricType.KEYWORD_COVERAGE, is_percentage=True)}
-        {format_complete_html(count)}
+        {format_metric_html("Mean Reciprocal Rank (MRR)", total_mrr / test_case_count, MetricType.MRR)}
+        {format_metric_html("Normalized DCG (nDCG)", total_mean_ndcg / test_case_count, MetricType.NDCG)}
+        {format_metric_html("Keyword Coverage", total_keyword_coverage_percent / test_case_count, MetricType.KEYWORD_COVERAGE, is_percentage=True)}
+        {format_completion_html(test_case_count)}
     </div>
     """
 
@@ -114,22 +114,22 @@ def run_answer_evaluation(pipeline_name, progress=gr.Progress()):
     total_completeness = 0.0
     total_relevance = 0.0
     category_accuracy = defaultdict(list)
-    count = 0
+    test_case_count = 0
 
     for test_case, answer_eval, progress_value in evaluate_answer_all(pipeline_name):
-        count += 1
+        test_case_count += 1
         total_accuracy += answer_eval.accuracy
         total_completeness += answer_eval.completeness
         total_relevance += answer_eval.relevance
         category_accuracy[test_case.category].append(answer_eval.accuracy)
-        progress(progress_value, desc=f"Evaluating test case {count}...")
+        progress(progress_value, desc=f"Evaluating test case {test_case_count}...")
 
     metrics_html = f"""
     <div style="padding: 0;">
-        {format_metric_html("Accuracy", total_accuracy / count, MetricType.ACCURACY, is_score=True)}
-        {format_metric_html("Completeness", total_completeness / count, MetricType.COMPLETENESS, is_score=True)}
-        {format_metric_html("Relevance", total_relevance / count, MetricType.RELEVANCE, is_score=True)}
-        {format_complete_html(count)}
+        {format_metric_html("Accuracy", total_accuracy / test_case_count, MetricType.ACCURACY, is_score=True)}
+        {format_metric_html("Completeness", total_completeness / test_case_count, MetricType.COMPLETENESS, is_score=True)}
+        {format_metric_html("Relevance", total_relevance / test_case_count, MetricType.RELEVANCE, is_score=True)}
+        {format_completion_html(test_case_count)}
     </div>
     """
 
@@ -149,7 +149,7 @@ def main():
         gr.Markdown("# RAG Evaluation Dashboard")
         gr.Markdown("Evaluate retrieval and answer quality for the Insurellm RAG system")
         pipeline_selector = gr.Radio(
-            choices=[(label, name) for name, label in LABELS.items()],
+            choices=[(label, name) for name, label in PIPELINE_LABELS.items()],
             value=DEFAULT_PIPELINE,
             label="RAG Pipeline",
         )

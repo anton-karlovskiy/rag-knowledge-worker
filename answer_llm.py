@@ -97,8 +97,8 @@ def rerank(question: str, chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
         {"role": "user", "content": user_prompt},
     ]
     response = completion(model=MODEL, messages=messages, response_format=RankOrder)
-    order = RankOrder.model_validate_json(response.choices[0].message.content).order
-    return [chunks[i - 1] for i in order]
+    ranked_ids = RankOrder.model_validate_json(response.choices[0].message.content).order
+    return [chunks[chunk_id - 1] for chunk_id in ranked_ids]
 
 
 @llm_retry
@@ -106,29 +106,29 @@ def rewrite_query(question: str, history: list[dict] | None = None) -> str:
     """
     Rewrite the question into a short, specific query more likely to surface relevant chunks.
     """
-    message = REWRITE_QUERY_PROMPT.format(history=history or [], question=question)
-    response = completion(model=MODEL, messages=[{"role": "system", "content": message}])
+    prompt = REWRITE_QUERY_PROMPT.format(history=history or [], question=question)
+    response = completion(model=MODEL, messages=[{"role": "system", "content": prompt}])
     return response.choices[0].message.content
 
 
-def merge_chunks(chunks: list[RetrievedChunk], extra: list[RetrievedChunk]) -> list[RetrievedChunk]:
+def merge_chunks(chunks: list[RetrievedChunk], extra_chunks: list[RetrievedChunk]) -> list[RetrievedChunk]:
     """
-    Append the chunks from extra that are not already in chunks.
+    Append the chunks from extra_chunks that are not already in chunks.
     """
     merged = chunks[:]
     existing = {chunk.page_content for chunk in chunks}
-    for chunk in extra:
+    for chunk in extra_chunks:
         if chunk.page_content not in existing:
             merged.append(chunk)
     return merged
 
 
-def retrieve_candidates(question: str) -> list[RetrievedChunk]:
-    query_embedding = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=[question]).data[0].embedding
+def retrieve_candidates(query: str) -> list[RetrievedChunk]:
+    query_embedding = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=[query]).data[0].embedding
     results = collection.query(query_embeddings=[query_embedding], n_results=LLM_RETRIEVAL_K)
     return [
-        RetrievedChunk(page_content=document, metadata=metadata)
-        for document, metadata in zip(results["documents"][0], results["metadatas"][0])
+        RetrievedChunk(page_content=chunk_text, metadata=metadata)
+        for chunk_text, metadata in zip(results["documents"][0], results["metadatas"][0])
     ]
 
 

@@ -128,7 +128,7 @@ Every metric improved. The biggest gains are on the categories that were weakest
 
 ## How the RAG pipeline works
 
-Both pipelines expose the same interface, `answer_question(question, history) -> (answer, chunks)` and `fetch_context(question, history) -> chunks`, so the app and evaluation switch between them through `pipelines.get_pipeline(name)`. The LangChain pipeline splits documents into 500-character chunks and retrieves the top 10 for the question combined with prior user messages. The LLM pipeline works as follows:
+Both pipelines expose the same interface, `answer_question(question, history) -> (answer, chunks)` and `fetch_context(question, history) -> chunks`, so the app and evaluation switch between them through `pipelines.get_pipeline(pipeline_name)`. The LangChain pipeline splits documents into 500-character chunks and retrieves the top 10 for the question combined with prior user messages. The LLM pipeline works as follows:
 
 
 1. At ingestion, an LLM splits each document into overlapping chunks. Each chunk gets a headline, a summary, and the original text, and all three are embedded together.

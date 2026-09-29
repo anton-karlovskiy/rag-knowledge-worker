@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from pydantic import BaseModel, Field
 
-TEST_CASES_FILE = str(Path(__file__).parent / "test_cases.jsonl")
+TEST_CASES_PATH = str(Path(__file__).parent / "test_cases.jsonl")
 
 
 class TestCase(BaseModel):
@@ -14,8 +14,8 @@ class TestCase(BaseModel):
 
 def load_test_cases() -> list[TestCase]:
     test_cases = []
-    with open(TEST_CASES_FILE, "r", encoding="utf-8") as file_handle:
+    with open(TEST_CASES_PATH, "r", encoding="utf-8") as file_handle:
         for line in file_handle:
-            data = json.loads(line.strip())
-            test_cases.append(TestCase(**data))
+            test_case_data = json.loads(line.strip())
+            test_cases.append(TestCase(**test_case_data))
     return test_cases

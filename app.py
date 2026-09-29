@@ -1,7 +1,7 @@
 import gradio as gr
 from dotenv import load_dotenv
 
-from pipelines import DEFAULT_PIPELINE, LABELS, get_pipeline
+from pipelines import DEFAULT_PIPELINE, PIPELINE_LABELS, get_pipeline
 
 load_dotenv(override=True)
 
@@ -41,7 +41,7 @@ def main():
     with gr.Blocks(title="Insurellm Expert Assistant") as ui:
         gr.Markdown("# Insurellm Expert Assistant\nAsk me anything about Insurellm!")
         pipeline_selector = gr.Radio(
-            choices=[(label, name) for name, label in LABELS.items()],
+            choices=[(label, name) for name, label in PIPELINE_LABELS.items()],
             value=DEFAULT_PIPELINE,
             label="RAG Pipeline",
         )

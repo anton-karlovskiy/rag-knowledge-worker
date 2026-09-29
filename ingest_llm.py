@@ -29,7 +29,7 @@ class StoredChunk(BaseModel):
     metadata: dict
 
 
-class Chunk(BaseModel):
+class GeneratedChunk(BaseModel):
     headline: str = Field(
         description="A brief heading for this chunk, typically a few words, that is most likely to be surfaced in a query",
     )
@@ -48,8 +48,8 @@ class Chunk(BaseModel):
         )
 
 
-class Chunks(BaseModel):
-    chunks: list[Chunk]
+class GeneratedChunks(BaseModel):
+    chunks: list[GeneratedChunk]
 
 
 def load_documents() -> list[dict]:
@@ -93,8 +93,8 @@ Respond with the chunks.
 @retry(wait=retry_backoff)
 def chunk_document(document: dict) -> list[StoredChunk]:
     messages = [{"role": "user", "content": make_chunking_prompt(document)}]
-    response = completion(model=MODEL, messages=messages, response_format=Chunks)
-    chunks = Chunks.model_validate_json(response.choices[0].message.content).chunks
+    response = completion(model=MODEL, messages=messages, response_format=GeneratedChunks)
+    chunks = GeneratedChunks.model_validate_json(response.choices[0].message.content).chunks
     return [chunk.as_stored_chunk(document) for chunk in chunks]
 
 
@@ -109,7 +109,7 @@ def create_chunks(documents: list[dict]) -> list[StoredChunk]:
     return chunks
 
 
-def embed(texts: list[str]) -> list[list[float]]:
+def embed_texts(texts: list[str]) -> list[list[float]]:
     vectors = []
     for start in range(0, len(texts), EMBEDDING_BATCH_SIZE):
         batch = texts[start : start + EMBEDDING_BATCH_SIZE]
@@ -124,7 +124,7 @@ def build_vector_store(chunks: list[StoredChunk]) -> None:
         chroma.delete_collection(LLM_COLLECTION_NAME)
 
     texts = [chunk.page_content for chunk in chunks]
-    vectors = embed(texts)
+    vectors = embed_texts(texts)
     ids = [str(i) for i in range(len(chunks))]
     metadatas = [chunk.metadata for chunk in chunks]
 

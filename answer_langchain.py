@@ -27,7 +27,7 @@ vectorstore = Chroma(
 if vectorstore._collection.count() == 0:
     raise RuntimeError(f"Vector store at {LANGCHAIN_DB_PATH} is empty. Run `uv run ingest-langchain` first.")
 retriever = vectorstore.as_retriever(search_kwargs={"k": FINAL_K})
-llm = ChatOpenAI(temperature=0, model=MODEL)
+chat_model = ChatOpenAI(temperature=0, model=MODEL)
 
 
 def fetch_context(question: str, history: list[dict] | None = None) -> list[Document]:
@@ -59,5 +59,5 @@ def answer_question(question: str, history: list[dict] | None = None) -> tuple[s
     messages = [SystemMessage(content=system_prompt)]
     messages.extend(convert_to_messages(history))
     messages.append(HumanMessage(content=question))
-    response = llm.invoke(messages)
+    response = chat_model.invoke(messages)
     return response.content, chunks

@@ -6,7 +6,7 @@ from litellm import completion
 from dotenv import load_dotenv
 
 from evaluation.test_cases import TestCase, load_test_cases
-from pipelines import DEFAULT_PIPELINE, PIPELINES, get_pipeline
+from pipelines import DEFAULT_PIPELINE, PIPELINE_MODULES, get_pipeline
 from config import FINAL_K
 
 
@@ -172,7 +172,7 @@ def run_cli_evaluation(test_case_index: int, pipeline_name: str = DEFAULT_PIPELI
 def main():
     parser = argparse.ArgumentParser(description="Evaluate one test case")
     parser.add_argument("test_case_index", type=int)
-    parser.add_argument("--pipeline", choices=list(PIPELINES), default=DEFAULT_PIPELINE)
+    parser.add_argument("--pipeline", choices=list(PIPELINE_MODULES), default=DEFAULT_PIPELINE)
     args = parser.parse_args()
     run_cli_evaluation(args.test_case_index, args.pipeline)
 

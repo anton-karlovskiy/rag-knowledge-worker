@@ -25,9 +25,9 @@ def load_documents():
         loader = DirectoryLoader(
             str(folder), glob="**/*.md", loader_cls=TextLoader, loader_kwargs={"encoding": "utf-8"}
         )
-        for doc in loader.load():
-            doc.metadata["type"] = folder.name
-            documents.append(doc)
+        for document in loader.load():
+            document.metadata["type"] = folder.name
+            documents.append(document)
     print(f"Loaded {len(documents)} documents")
     return documents
 

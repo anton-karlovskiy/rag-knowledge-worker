@@ -3,21 +3,21 @@ from types import ModuleType
 
 
 # Pipeline name -> module exposing answer_question(question, history) and fetch_context(question, history)
-PIPELINES = {
+PIPELINE_MODULES = {
     "langchain": "answer_langchain",
     "llm": "answer_llm",
 }
-LABELS = {
+PIPELINE_LABELS = {
     "langchain": "LangChain",
     "llm": "LLM (chunking + rerank)",
 }
 DEFAULT_PIPELINE = "llm"
 
 
-def get_pipeline(name: str = DEFAULT_PIPELINE) -> ModuleType:
+def get_pipeline(pipeline_name: str = DEFAULT_PIPELINE) -> ModuleType:
     """
     Import the pipeline module on first use, so only the selected pipeline needs a populated vector store.
     """
-    if name not in PIPELINES:
-        raise ValueError(f"Unknown pipeline {name!r}, expected one of {list(PIPELINES)}")
-    return import_module(PIPELINES[name])
+    if pipeline_name not in PIPELINE_MODULES:
+        raise ValueError(f"Unknown pipeline {pipeline_name!r}, expected one of {list(PIPELINE_MODULES)}")
+    return import_module(PIPELINE_MODULES[pipeline_name])
